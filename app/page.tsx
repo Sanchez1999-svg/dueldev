@@ -1,5 +1,7 @@
 "use client";
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
+import { supabase } from "./supabase";
 
 const duels = [
   { id: 1, author: "Maxim K.", initials: "МК", task: "Two Sum — кто быстрее решит", stake: 2000, status: "open", time: "30 мин", lang: "Python / JS" },
@@ -9,9 +11,43 @@ const duels = [
 ];
 
 export default function Home() {
+  const router = useRouter();
   const [tab, setTab] = useState("open");
   const [showCreate, setShowCreate] = useState(false);
   const [stake, setStake] = useState(1000);
+  const [loading, setLoading] = useState(true);
+  const [profile, setProfile] = useState<{ username: string; balance: number } | null>(null);
+
+  useEffect(() => {
+    checkUser();
+  }, []);
+
+  async function checkUser() {
+    const { data: { session } } = await supabase.auth.getSession();
+
+    if (!session) {
+      router.push("/auth");
+      return;
+    }
+
+    const { data } = await supabase
+      .from("profiles")
+      .select("username, balance")
+      .eq("id", session.user.id)
+      .single();
+
+    if (data) {
+      setProfile(data);
+    } else {
+      setProfile({ username: session.user.email?.split("@")[0] || "Игрок", balance: 0 });
+    }
+    setLoading(false);
+  }
+
+  async function handleLogout() {
+    await supabase.auth.signOut();
+    router.push("/auth");
+  }
 
   const filtered = duels.filter(d =>
     tab === "open" ? d.status === "open" : d.status === "live"
@@ -19,6 +55,14 @@ export default function Home() {
 
   const commission = 0.1;
   const prize = Math.round(stake * 2 * (1 - commission));
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gray-950 text-white flex items-center justify-center">
+        <div className="text-gray-500">Загрузка...</div>
+      </div>
+    );
+  }
 
   if (showCreate) {
     return (
@@ -54,7 +98,7 @@ export default function Home() {
               <select className="w-full bg-gray-900 border border-gray-800 rounded-xl p-3 text-white focus:outline-none focus:border-gray-600">
                 <option>15 минут</option>
                 <option>30 минут</option>
-                <option selected>1 час</option>
+                <option>1 час</option>
                 <option>24 часа</option>
               </select>
             </div>
@@ -88,15 +132,6 @@ export default function Home() {
               </div>
             </div>
 
-            <div className="bg-gray-900 rounded-xl p-4 border border-gray-800 space-y-3">
-              {["Твои деньги уходят в эскроу", "Соперник вносит такую же сумму", "Оба пишут код в редакторе на платформе", "Победитель получает банк минус комиссия"].map((s, i) => (
-                <div key={i} className="flex items-start gap-3 text-sm">
-                  <div className="w-6 h-6 rounded-full bg-red-600 flex items-center justify-center text-xs font-medium flex-shrink-0 mt-0.5">{i + 1}</div>
-                  <span className="text-gray-300">{s}</span>
-                </div>
-              ))}
-            </div>
-
             <button
               onClick={() => setShowCreate(false)}
               className="w-full bg-red-600 hover:bg-red-700 text-white font-medium py-3 rounded-xl transition-colors"
@@ -119,9 +154,21 @@ export default function Home() {
             duel<span className="text-red-500">.</span>dev
           </div>
           <div className="flex items-center gap-3">
-            <span className="text-sm text-gray-400">Баланс: <span className="text-white font-medium">2 400 ₽</span></span>
-            <div className="w-8 h-8 rounded-full bg-blue-600 flex items-center justify-center text-xs font-medium">АК</div>
+            <span className="text-sm text-gray-400">
+              Баланс: <span className="text-white font-medium">{profile?.balance?.toLocaleString("ru-RU") || 0} ₽</span>
+            </span>
+            <button
+              onClick={handleLogout}
+              className="w-8 h-8 rounded-full bg-blue-600 flex items-center justify-center text-xs font-medium hover:bg-blue-700 transition-colors"
+              title="Выйти"
+            >
+              {profile?.username?.slice(0, 2).toUpperCase() || "??"}
+            </button>
           </div>
+        </div>
+
+        <div className="text-sm text-gray-500 mb-4">
+          Привет, <span className="text-gray-300">{profile?.username}</span>!
         </div>
 
         {/* Stats */}
@@ -192,4 +239,3 @@ export default function Home() {
     </div>
   );
 }
-
