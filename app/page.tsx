@@ -3,20 +3,35 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "./supabase";
 
-const duels = [
-  { id: 1, author: "Maxim K.", initials: "МК", task: "Two Sum — кто быстрее решит", stake: 2000, status: "open", time: "30 мин", lang: "Python / JS" },
-  { id: 2, author: "Daria S.", initials: "ДС", task: "Реверс связного списка", stake: 500, status: "open", time: "15 мин", lang: "Любой" },
-  { id: 3, author: "Igor P.", initials: "ИП", task: "Binary Search Tree — вставка", stake: 5000, status: "live", time: "осталось 12 мин", lang: "Java / C++" },
-  { id: 4, author: "Anna V.", initials: "АВ", task: "Fibonacci за O(n)", stake: 1000, status: "open", time: "20 мин", lang: "Любой" },
-];
+type Duel = {
+  id: string;
+  task: string;
+  language: string;
+  duration_minutes: number;
+  stake: number;
+  status: string;
+  created_at: string;
+  creator_id: string;
+  opponent_id: string | null;
+  profiles?: { username: string };
+};
 
 export default function Home() {
   const router = useRouter();
   const [tab, setTab] = useState("open");
   const [showCreate, setShowCreate] = useState(false);
+  const [selectedDuel, setSelectedDuel] = useState<Duel | null>(null);
   const [stake, setStake] = useState(1000);
+  const [task, setTask] = useState("");
+  const [language, setLanguage] = useState("Любой");
+  const [duration, setDuration] = useState(60);
   const [loading, setLoading] = useState(true);
+  const [publishing, setPublishing] = useState(false);
+  const [accepting, setAccepting] = useState(false);
+  const [errorMsg, setErrorMsg] = useState("");
+  const [userId, setUserId] = useState<string | null>(null);
   const [profile, setProfile] = useState<{ username: string; balance: number } | null>(null);
+  const [duels, setDuels] = useState<Duel[]>([]);
 
   useEffect(() => {
     checkUser();
@@ -30,6 +45,8 @@ export default function Home() {
       return;
     }
 
+    setUserId(session.user.id);
+
     const { data } = await supabase
       .from("profiles")
       .select("username, balance")
@@ -41,12 +58,103 @@ export default function Home() {
     } else {
       setProfile({ username: session.user.email?.split("@")[0] || "Игрок", balance: 0 });
     }
+
+    await loadDuels();
     setLoading(false);
+  }
+
+  async function loadDuels() {
+    const { data } = await supabase
+      .from("duels")
+      .select("*, profiles!duels_creator_id_fkey(username)")
+      .order("created_at", { ascending: false });
+
+    if (data) setDuels(data as Duel[]);
+  }
+
+  async function refreshProfile() {
+    if (!userId) return;
+    const { data } = await supabase
+      .from("profiles")
+      .select("username, balance")
+      .eq("id", userId)
+      .single();
+    if (data) setProfile(data);
   }
 
   async function handleLogout() {
     await supabase.auth.signOut();
     router.push("/auth");
+  }
+
+  async function handlePublish() {
+    if (!task.trim()) {
+      setErrorMsg("Опиши задачу для дуэли");
+      return;
+    }
+    if (!profile || profile.balance < stake) {
+      setErrorMsg("Недостаточно средств на балансе");
+      return;
+    }
+
+    setPublishing(true);
+    setErrorMsg("");
+
+    const { error: duelError } = await supabase.from("duels").insert({
+      creator_id: userId,
+      task,
+      language,
+      duration_minutes: duration,
+      stake,
+      status: "open",
+    });
+
+    if (duelError) {
+      setErrorMsg(duelError.message);
+      setPublishing(false);
+      return;
+    }
+
+    const newBalance = profile.balance - stake;
+    await supabase.from("profiles").update({ balance: newBalance }).eq("id", userId);
+    setProfile({ ...profile, balance: newBalance });
+
+    await loadDuels();
+    setPublishing(false);
+    setShowCreate(false);
+    setTask("");
+    setStake(1000);
+  }
+
+  async function handleAccept(duel: Duel) {
+    if (!profile || profile.balance < duel.stake) {
+      setErrorMsg("Недостаточно средств чтобы принять вызов");
+      return;
+    }
+
+    setAccepting(true);
+    setErrorMsg("");
+
+    const { error: updateError } = await supabase
+      .from("duels")
+      .update({ opponent_id: userId, status: "live" })
+      .eq("id", duel.id)
+      .eq("status", "open"); // защита от двойного принятия
+
+    if (updateError) {
+      setErrorMsg(updateError.message);
+      setAccepting(false);
+      return;
+    }
+
+    const newBalance = profile.balance - duel.stake;
+    await supabase.from("profiles").update({ balance: newBalance }).eq("id", userId);
+    setProfile({ ...profile, balance: newBalance });
+
+    await loadDuels();
+    setAccepting(false);
+    setSelectedDuel(null);
+    setTab("live");
   }
 
   const filtered = duels.filter(d =>
@@ -64,6 +172,90 @@ export default function Home() {
     );
   }
 
+  // Экран деталей дуэли / принятия вызова
+  if (selectedDuel) {
+    const isMine = selectedDuel.creator_id === userId;
+    const duelPrize = Math.round(selectedDuel.stake * 2 * 0.9);
+    const minutesAgo = Math.max(0, Math.round((Date.now() - new Date(selectedDuel.created_at).getTime()) / 60000));
+
+    return (
+      <div className="min-h-screen bg-gray-950 text-white">
+        <div className="max-w-lg mx-auto px-4 py-6">
+          <button onClick={() => setSelectedDuel(null)} className="flex items-center gap-2 text-gray-400 hover:text-white mb-6 transition-colors">
+            ← Назад
+          </button>
+
+          <h1 className="text-2xl font-semibold mb-6">Детали дуэли</h1>
+
+          <div className="bg-gray-900 border border-gray-800 rounded-xl p-4 mb-5">
+            <div className="flex items-center gap-2 mb-4">
+              <div className="w-10 h-10 rounded-full bg-blue-900 flex items-center justify-center text-sm font-medium">
+                {selectedDuel.profiles?.username?.slice(0, 2).toUpperCase() || "??"}
+              </div>
+              <div>
+                <div className="text-sm font-medium">{selectedDuel.profiles?.username || "Игрок"}</div>
+                <div className="text-xs text-gray-500">{minutesAgo} мин назад</div>
+              </div>
+            </div>
+
+            <p className="text-gray-300 mb-4">{selectedDuel.task}</p>
+
+            <div className="flex gap-2 mb-4">
+              <span className="text-xs bg-blue-900/40 text-blue-400 px-2 py-1 rounded-full">{selectedDuel.language}</span>
+              <span className="text-xs bg-gray-800 text-gray-400 px-2 py-1 rounded-full">
+                {selectedDuel.duration_minutes < 60 ? `${selectedDuel.duration_minutes} мин` : selectedDuel.duration_minutes === 1440 ? "24 часа" : `${selectedDuel.duration_minutes / 60} час`}
+              </span>
+            </div>
+
+            <div className="border-t border-gray-800 pt-3 space-y-2">
+              <div className="flex justify-between text-sm">
+                <span className="text-gray-400">Ставка каждого</span>
+                <span>{selectedDuel.stake.toLocaleString("ru-RU")} ₽</span>
+              </div>
+              <div className="flex justify-between font-semibold">
+                <span>Победитель получит</span>
+                <span className="text-green-400">{duelPrize.toLocaleString("ru-RU")} ₽</span>
+              </div>
+            </div>
+          </div>
+
+          {isMine ? (
+            <div className="bg-gray-900 border border-gray-800 rounded-xl p-4 text-center text-gray-400 text-sm">
+              Это твоя дуэль. Жди когда кто-то примет вызов.
+            </div>
+          ) : selectedDuel.status === "live" ? (
+            <div className="bg-gray-900 border border-gray-800 rounded-xl p-4 text-center text-gray-400 text-sm">
+              Дуэль уже принята другим игроком.
+            </div>
+          ) : (
+            <>
+              <div className="bg-gray-900 rounded-xl p-4 border border-gray-800 mb-4">
+                <div className="flex justify-between text-sm">
+                  <span className="text-gray-400">Твой баланс</span>
+                  <span>{profile?.balance.toLocaleString("ru-RU")} ₽</span>
+                </div>
+              </div>
+
+              {errorMsg && (
+                <div className="text-sm px-4 py-3 rounded-xl bg-red-900/50 text-red-400 mb-4">
+                  {errorMsg}
+                </div>
+              )}
+
+              <button
+                onClick={() => handleAccept(selectedDuel)}
+                disabled={accepting}
+                className="w-full bg-red-600 hover:bg-red-700 disabled:opacity-50 text-white font-medium py-3 rounded-xl transition-colors"
+              >
+                {accepting ? "Принятие вызова..." : `Принять вызов — ${selectedDuel.stake.toLocaleString("ru-RU")} ₽`}
+              </button>
+            </>
+          )}
+        </div>
+      </div>
+    );
+  }
+
   if (showCreate) {
     return (
       <div className="min-h-screen bg-gray-950 text-white">
@@ -77,6 +269,8 @@ export default function Home() {
             <div>
               <label className="block text-sm text-gray-400 mb-2">Задача</label>
               <textarea
+                value={task}
+                onChange={e => setTask(e.target.value)}
                 className="w-full bg-gray-900 border border-gray-800 rounded-xl p-3 text-white placeholder-gray-600 resize-none h-24 focus:outline-none focus:border-gray-600"
                 placeholder="Например: решить Two Sum на LeetCode быстрее соперника..."
               />
@@ -84,7 +278,11 @@ export default function Home() {
 
             <div>
               <label className="block text-sm text-gray-400 mb-2">Язык программирования</label>
-              <select className="w-full bg-gray-900 border border-gray-800 rounded-xl p-3 text-white focus:outline-none focus:border-gray-600">
+              <select
+                value={language}
+                onChange={e => setLanguage(e.target.value)}
+                className="w-full bg-gray-900 border border-gray-800 rounded-xl p-3 text-white focus:outline-none focus:border-gray-600"
+              >
                 <option>Любой</option>
                 <option>Python</option>
                 <option>JavaScript</option>
@@ -95,11 +293,15 @@ export default function Home() {
 
             <div>
               <label className="block text-sm text-gray-400 mb-2">Время на решение</label>
-              <select className="w-full bg-gray-900 border border-gray-800 rounded-xl p-3 text-white focus:outline-none focus:border-gray-600">
-                <option>15 минут</option>
-                <option>30 минут</option>
-                <option>1 час</option>
-                <option>24 часа</option>
+              <select
+                value={duration}
+                onChange={e => setDuration(Number(e.target.value))}
+                className="w-full bg-gray-900 border border-gray-800 rounded-xl p-3 text-white focus:outline-none focus:border-gray-600"
+              >
+                <option value={15}>15 минут</option>
+                <option value={30}>30 минут</option>
+                <option value={60}>1 час</option>
+                <option value={1440}>24 часа</option>
               </select>
             </div>
 
@@ -119,6 +321,10 @@ export default function Home() {
 
             <div className="bg-gray-900 rounded-xl p-4 border border-gray-800">
               <div className="flex justify-between text-sm mb-2">
+                <span className="text-gray-400">Твой баланс</span>
+                <span>{profile?.balance.toLocaleString("ru-RU")} ₽</span>
+              </div>
+              <div className="flex justify-between text-sm mb-2">
                 <span className="text-gray-400">Банк дуэли</span>
                 <span>{(stake * 2).toLocaleString("ru-RU")} ₽</span>
               </div>
@@ -132,11 +338,18 @@ export default function Home() {
               </div>
             </div>
 
+            {errorMsg && (
+              <div className="text-sm px-4 py-3 rounded-xl bg-red-900/50 text-red-400">
+                {errorMsg}
+              </div>
+            )}
+
             <button
-              onClick={() => setShowCreate(false)}
-              className="w-full bg-red-600 hover:bg-red-700 text-white font-medium py-3 rounded-xl transition-colors"
+              onClick={handlePublish}
+              disabled={publishing}
+              className="w-full bg-red-600 hover:bg-red-700 disabled:opacity-50 text-white font-medium py-3 rounded-xl transition-colors"
             >
-              Опубликовать вызов — {stake.toLocaleString("ru-RU")} ₽
+              {publishing ? "Публикация..." : `Опубликовать вызов — ${stake.toLocaleString("ru-RU")} ₽`}
             </button>
           </div>
         </div>
@@ -178,8 +391,8 @@ export default function Home() {
             <div className="text-2xl font-semibold">{duels.filter(d => d.status === "open").length}</div>
           </div>
           <div className="bg-gray-900 rounded-xl p-4 border border-gray-800">
-            <div className="text-xs text-gray-500 mb-1">Банк сегодня</div>
-            <div className="text-2xl font-semibold">47 000 ₽</div>
+            <div className="text-xs text-gray-500 mb-1">Банк всего</div>
+            <div className="text-2xl font-semibold">{duels.reduce((sum, d) => sum + d.stake * 2, 0).toLocaleString("ru-RU")} ₽</div>
           </div>
         </div>
 
@@ -199,32 +412,41 @@ export default function Home() {
 
         {/* Duel cards */}
         <div className="space-y-3 mb-6">
-          {filtered.map(d => (
-            <div key={d.id} className="bg-gray-900 border border-gray-800 rounded-xl p-4 hover:border-gray-700 transition-colors cursor-pointer">
-              <div className="flex items-start justify-between mb-3">
-                <div className="flex items-center gap-2">
-                  <div className="w-8 h-8 rounded-full bg-blue-900 flex items-center justify-center text-xs font-medium">{d.initials}</div>
-                  <div>
-                    <div className="text-sm font-medium">{d.author}</div>
-                    <div className="text-xs text-gray-500">{d.time}</div>
+          {filtered.map(d => {
+            const initials = d.profiles?.username?.slice(0, 2).toUpperCase() || "??";
+            const minutesAgo = Math.max(0, Math.round((Date.now() - new Date(d.created_at).getTime()) / 60000));
+            const isMine = d.creator_id === userId;
+            return (
+              <div
+                key={d.id}
+                onClick={() => setSelectedDuel(d)}
+                className="bg-gray-900 border border-gray-800 rounded-xl p-4 hover:border-gray-700 transition-colors cursor-pointer"
+              >
+                <div className="flex items-start justify-between mb-3">
+                  <div className="flex items-center gap-2">
+                    <div className="w-8 h-8 rounded-full bg-blue-900 flex items-center justify-center text-xs font-medium">{initials}</div>
+                    <div>
+                      <div className="text-sm font-medium">{d.profiles?.username || "Игрок"} {isMine && <span className="text-gray-500">(ты)</span>}</div>
+                      <div className="text-xs text-gray-500">{minutesAgo} мин назад</div>
+                    </div>
+                  </div>
+                  <span className={`text-xs px-2 py-1 rounded-full font-medium ${d.status === "live" ? "bg-red-900/50 text-red-400" : "bg-green-900/50 text-green-400"}`}>
+                    {d.status === "live" ? "● Live" : "Открыта"}
+                  </span>
+                </div>
+                <p className="text-sm text-gray-300 mb-3">{d.task}</p>
+                <div className="flex items-center justify-between">
+                  <span className="text-xs bg-blue-900/40 text-blue-400 px-2 py-1 rounded-full">{d.language}</span>
+                  <div className="text-right">
+                    <div className="text-xs text-gray-500">Ставка {d.stake.toLocaleString("ru-RU")} ₽</div>
+                    <div className="text-lg font-semibold text-green-400">{(d.stake * 2 * 0.9).toLocaleString("ru-RU")} ₽</div>
                   </div>
                 </div>
-                <span className={`text-xs px-2 py-1 rounded-full font-medium ${d.status === "live" ? "bg-red-900/50 text-red-400" : "bg-green-900/50 text-green-400"}`}>
-                  {d.status === "live" ? "● Live" : "Открыта"}
-                </span>
               </div>
-              <p className="text-sm text-gray-300 mb-3">{d.task}</p>
-              <div className="flex items-center justify-between">
-                <span className="text-xs bg-blue-900/40 text-blue-400 px-2 py-1 rounded-full">{d.lang}</span>
-                <div className="text-right">
-                  <div className="text-xs text-gray-500">Ставка {d.stake.toLocaleString("ru-RU")} ₽</div>
-                  <div className="text-lg font-semibold text-green-400">{(d.stake * 2 * 0.9).toLocaleString("ru-RU")} ₽</div>
-                </div>
-              </div>
-            </div>
-          ))}
+            );
+          })}
           {filtered.length === 0 && (
-            <div className="text-center text-gray-600 py-12">Нет активных дуэлей</div>
+            <div className="text-center text-gray-600 py-12">Нет активных дуэлей. Создай первую!</div>
           )}
         </div>
 
