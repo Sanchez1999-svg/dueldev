@@ -25,6 +25,13 @@ type Solution = {
   submitted_at: string;
 };
 
+type Message = {
+  id: string;
+  sender_id: string;
+  text: string;
+  created_at: string;
+};
+
 export default function DuelRoom() {
   const router = useRouter();
   const params = useParams();
@@ -54,6 +61,10 @@ export default function DuelRoom() {
     time: string | null;
     memory: number | null;
   } | null>(null);
+  const [messages, setMessages] = useState<Message[]>([]);
+  const [chatDraft, setChatDraft] = useState("");
+  const [sendingChat, setSendingChat] = useState(false);
+  const chatScrollRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     init();
@@ -68,6 +79,10 @@ export default function DuelRoom() {
       })
       .on("postgres_changes", { event: "*", schema: "public", table: "votes", filter: `duel_id=eq.${duelId}` }, () => {
         if (userIdRef.current) loadDuel(userIdRef.current);
+      })
+      .on("postgres_changes", { event: "INSERT", schema: "public", table: "messages", filter: `duel_id=eq.${duelId}` }, (payload) => {
+        const msg = payload.new as Message;
+        setMessages(prev => (prev.some(m => m.id === msg.id) ? prev : [...prev, msg]));
       })
       .subscribe();
 
@@ -96,6 +111,10 @@ export default function DuelRoom() {
   useEffect(() => {
     if (duel && duel.language !== "Любой") setRunLanguage(duel.language);
   }, [duel?.language]);
+
+  useEffect(() => {
+    chatScrollRef.current?.scrollTo({ top: chatScrollRef.current.scrollHeight });
+  }, [messages]);
 
   useEffect(() => {
     if (!duel || duel.status !== "live" || timeLeft === null || timeLeft > 0) return;
@@ -151,6 +170,32 @@ export default function DuelRoom() {
       .select("voter_id, voted_for")
       .eq("duel_id", duelId);
     if (vts) setVotes(vts);
+
+    const { data: msgs } = await supabase
+      .from("messages")
+      .select("id, sender_id, text, created_at")
+      .eq("duel_id", duelId)
+      .order("created_at", { ascending: true });
+    if (msgs) setMessages(msgs);
+  }
+
+  async function handleSendMessage() {
+    const text = chatDraft.trim();
+    if (!text || !userId) return;
+    setSendingChat(true);
+    setChatDraft("");
+
+    const { error } = await supabase.from("messages").insert({
+      duel_id: duelId,
+      sender_id: userId,
+      text,
+    });
+
+    if (error) {
+      setErrorMsg(translateRpcError(error.message));
+      setChatDraft(text);
+    }
+    setSendingChat(false);
   }
 
   async function refreshData() {
@@ -447,6 +492,45 @@ export default function DuelRoom() {
                 {submitting ? "Отправка..." : "Отправить решение"}
               </button>
             )}
+
+            <div className="bg-gray-900 border border-gray-800 rounded-xl flex flex-col">
+              <div className="px-4 py-2 border-b border-gray-800 text-sm text-gray-400">Чат</div>
+              <div ref={chatScrollRef} className="flex-1 overflow-y-auto px-4 py-2 space-y-2 max-h-64 min-h-[160px]">
+                {messages.length === 0 && (
+                  <div className="text-xs text-gray-600 text-center py-4">Пока никто не написал</div>
+                )}
+                {messages.map(m => (
+                  <div key={m.id} className={`text-sm ${m.sender_id === userId ? "text-right" : ""}`}>
+                    <span
+                      className={`inline-block px-3 py-1.5 rounded-xl max-w-[85%] break-words ${
+                        m.sender_id === userId ? "bg-red-600 text-white" : "bg-gray-800 text-gray-200"
+                      }`}
+                    >
+                      {m.text}
+                    </span>
+                  </div>
+                ))}
+              </div>
+              <form
+                onSubmit={e => { e.preventDefault(); handleSendMessage(); }}
+                className="flex items-center gap-2 px-3 py-2 border-t border-gray-800"
+              >
+                <input
+                  value={chatDraft}
+                  onChange={e => setChatDraft(e.target.value)}
+                  placeholder="Написать сопернику..."
+                  maxLength={2000}
+                  className="flex-1 bg-gray-800 border border-gray-700 rounded-lg px-3 py-1.5 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-gray-600"
+                />
+                <button
+                  type="submit"
+                  disabled={sendingChat || !chatDraft.trim()}
+                  className="text-sm bg-gray-800 hover:bg-gray-700 disabled:opacity-50 text-white px-3 py-1.5 rounded-lg transition-colors"
+                >
+                  →
+                </button>
+              </form>
+            </div>
           </aside>
 
           {/* Редактор кода */}
