@@ -18,6 +18,8 @@ const RPC_ERROR_MESSAGES: [string, string][] = [
   ["both participants must vote for the same winner", "Голоса участников ещё не совпали"],
   ["voiding requires two disagreeing votes", "Для аннулирования нужны голоса от обоих участников"],
   ["deadline has not passed yet", "Время дуэли ещё не истекло"],
+  ["only the creator can cancel this duel", "Отменить вызов может только его создатель"],
+  ["only an open duel can be cancelled", "Можно отменить только ещё не принятый вызов"],
   ["duel not found", "Дуэль не найдена"],
   ["must be authenticated", "Сессия истекла, перезайди"],
 ];
@@ -26,4 +28,20 @@ export function translateRpcError(message: string | undefined | null): string {
   if (!message) return "Что-то пошло не так, попробуй обновить страницу";
   const match = RPC_ERROR_MESSAGES.find(([needle]) => message.includes(needle));
   return match ? match[1] : "Что-то пошло не так, попробуй обновить страницу";
+}
+
+// Russian relative time. Old duels were showing things like "5870 мин назад";
+// roll minutes up into hours and days. `now` is injectable for testing.
+export function formatRelativeTime(timestamp: string, now: number = Date.now()): string {
+  const diffMs = now - parseUtc(timestamp).getTime();
+  const diffMin = Math.floor(diffMs / 60000);
+
+  if (diffMin < 1) return "только что";
+  if (diffMin < 60) return `${diffMin} мин назад`;
+
+  const diffHours = Math.floor(diffMin / 60);
+  if (diffHours < 24) return `${diffHours} ч назад`;
+
+  const diffDays = Math.floor(diffHours / 24);
+  return `${diffDays} дн назад`;
 }

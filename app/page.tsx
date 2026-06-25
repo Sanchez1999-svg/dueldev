@@ -2,7 +2,7 @@
 import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "./supabase";
-import { parseUtc, translateRpcError } from "./utils";
+import { parseUtc, translateRpcError, formatRelativeTime } from "./utils";
 
 type Duel = {
   id: string;
@@ -105,6 +105,7 @@ export default function Home() {
   const [loading, setLoading] = useState(true);
   const [publishing, setPublishing] = useState(false);
   const [accepting, setAccepting] = useState(false);
+  const [cancelling, setCancelling] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
   const [userId, setUserId] = useState<string | null>(null);
   const [profile, setProfile] = useState<{ username: string; balance: number; wins: number; losses: number } | null>(null);
@@ -294,6 +295,25 @@ export default function Home() {
     router.push(`/duel/${duel.id}`);
   }
 
+  async function handleCancel(duel: Duel) {
+    setCancelling(true);
+    setErrorMsg("");
+
+    const { error: cancelError } = await supabase.rpc("cancel_duel", { p_duel_id: duel.id });
+
+    if (cancelError) {
+      setErrorMsg(translateRpcError(cancelError.message));
+      setCancelling(false);
+      await loadDuels();
+      return;
+    }
+
+    await refreshProfile();
+    await loadDuels();
+    setCancelling(false);
+    setSelectedDuel(null);
+  }
+
   const filtered = duels.filter(d => {
     if (tab === "open") return d.status === "open";
     if (tab === "live") return d.status === "live";
@@ -360,7 +380,6 @@ export default function Home() {
   if (selectedDuel) {
     const isMine = selectedDuel.creator_id === userId;
     const duelPrize = Math.round(selectedDuel.stake * 2 * 0.9);
-    const minutesAgo = Math.max(0, Math.round((Date.now() - parseUtc(selectedDuel.created_at).getTime()) / 60000));
 
     return (
       <div className="min-h-screen bg-gray-950 text-white">
@@ -379,7 +398,7 @@ export default function Home() {
               </div>
               <div>
                 <div className="text-sm font-medium">{profilesMap[selectedDuel.creator_id] || "Игрок"}</div>
-                <div className="text-xs text-gray-500">{minutesAgo} мин назад</div>
+                <div className="text-xs text-gray-500">{formatRelativeTime(selectedDuel.created_at)}</div>
               </div>
             </div>
 
@@ -421,7 +440,19 @@ export default function Home() {
                   Войти в дуэль →
                 </button>
               ) : (
-                "Это твоя дуэль. Жди когда кто-то примет вызов."
+                <div className="space-y-3">
+                  <div>Это твоя дуэль. Жди когда кто-то примет вызов.</div>
+                  {errorMsg && (
+                    <div className="text-sm px-4 py-3 rounded-xl bg-red-900/50 text-red-400">{errorMsg}</div>
+                  )}
+                  <button
+                    onClick={() => handleCancel(selectedDuel)}
+                    disabled={cancelling}
+                    className="w-full bg-gray-800 hover:bg-gray-700 disabled:opacity-50 text-white font-medium py-3 rounded-xl transition-colors"
+                  >
+                    {cancelling ? "Отмена..." : `Отменить вызов и вернуть ${selectedDuel.stake.toLocaleString("ru-RU")} ₽`}
+                  </button>
+                </div>
               )}
             </div>
           ) : selectedDuel.status === "live" ? (
@@ -761,7 +792,6 @@ export default function Home() {
 
             const creatorName = profilesMap[d.creator_id] || "Игрок";
             const initials = creatorName.slice(0, 2).toUpperCase();
-            const minutesAgo = Math.max(0, Math.round((Date.now() - parseUtc(d.created_at).getTime()) / 60000));
             return (
               <div
                 key={d.id}
@@ -778,7 +808,7 @@ export default function Home() {
                           <span className="ml-2 inline-flex items-center gap-1 text-xs text-yellow-400">💬 новое</span>
                         )}
                       </div>
-                      <div className="text-xs text-gray-500">{minutesAgo} мин назад</div>
+                      <div className="text-xs text-gray-500">{formatRelativeTime(d.created_at)}</div>
                     </div>
                   </div>
                   <span className={`text-xs px-2 py-1 rounded-full font-medium ${d.status === "live" ? "bg-red-900/50 text-red-400" : "bg-green-900/50 text-green-400"}`}>
