@@ -1,7 +1,8 @@
 "use client";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "./supabase";
+import { parseUtc } from "./utils";
 
 type Duel = {
   id: string;
@@ -11,10 +12,82 @@ type Duel = {
   stake: number;
   status: string;
   created_at: string;
+  started_at: string | null;
   creator_id: string;
   opponent_id: string | null;
   profiles?: { username: string };
 };
+
+const TASK_BANK: Record<string, Record<string, string[]>> = {
+  "Алгоритмы": {
+    "Легко": [
+      "Two Sum — найти два числа в массиве, сумма которых равна заданному значению",
+      "Перевернуть строку без использования встроенных функций",
+      "Найти максимальное число в массиве без сортировки",
+      "Проверить, является ли число простым",
+    ],
+    "Средне": [
+      "Найти самую длинную подстроку без повторяющихся символов",
+      "Реализовать бинарный поиск в отсортированном массиве",
+      "Найти все пары чисел в массиве с заданной суммой",
+      "Реверс связного списка",
+    ],
+    "Сложно": [
+      "Реализовать LRU Cache с O(1) операциями",
+      "Найти кратчайший путь в графе (алгоритм Дейкстры)",
+      "Слияние k отсортированных списков",
+      "Динамическое программирование: задача о рюкзаке",
+    ],
+  },
+  "Вёрстка": {
+    "Легко": [
+      "Сверстать карточку товара по картинке (адаптивная)",
+      "Сделать центрированную форму входа с email и паролем",
+      "Сверстать навбар с логотипом и тремя пунктами меню",
+      "Сделать кнопку с hover-эффектом по дизайну",
+    ],
+    "Средне": [
+      "Сверстать адаптивную сетку из 6 карточек (responsive grid)",
+      "Сделать модальное окно с затемнением фона",
+      "Сверстать таб-переключатель (tabs) на чистом CSS/JS",
+      "Сделать аккордеон с анимацией раскрытия",
+    ],
+    "Сложно": [
+      "Сверстать pixel-perfect лендинг по макету за ограниченное время",
+      "Сделать кастомный кастомизируемый видеоплеер",
+      "Реализовать drag-and-drop список задач",
+      "Сверстать сложную анимированную таймлайн-секцию",
+    ],
+  },
+  "Строки и текст": {
+    "Легко": [
+      "Посчитать количество гласных в строке",
+      "Проверить, является ли строка палиндромом",
+      "Удалить все пробелы из строки",
+      "Посчитать количество слов в предложении",
+    ],
+    "Средне": [
+      "Найти все анаграммы слова в массиве строк",
+      "Сжать строку (aaabbc → a3b2c1)",
+      "Проверить, можно ли составить слово из букв другого слова",
+      "Найти самый часто встречающийся символ в строке",
+    ],
+    "Сложно": [
+      "Реализовать простой парсер шаблонов ({{name}} → значение)",
+      "Написать функцию нечёткого поиска подстроки (fuzzy search)",
+      "Реализовать собственный regex-движок для простых паттернов",
+      "Написать алгоритм сжатия текста (упрощённый Хаффман)",
+    ],
+  },
+};
+
+function AcceptedToast({ text }: { text: string }) {
+  return (
+    <div className="fixed top-4 left-1/2 -translate-x-1/2 z-50 bg-green-600 text-white text-sm font-medium px-4 py-3 rounded-xl shadow-lg">
+      {text}
+    </div>
+  );
+}
 
 export default function Home() {
   const router = useRouter();
@@ -22,7 +95,9 @@ export default function Home() {
   const [showCreate, setShowCreate] = useState(false);
   const [selectedDuel, setSelectedDuel] = useState<Duel | null>(null);
   const [stake, setStake] = useState(1000);
-  const [task, setTask] = useState("");
+  const [category, setCategory] = useState("Алгоритмы");
+  const [difficulty, setDifficulty] = useState("Легко");
+  const [task, setTask] = useState(TASK_BANK["Алгоритмы"]["Легко"][0]);
   const [language, setLanguage] = useState("Любой");
   const [duration, setDuration] = useState(60);
   const [loading, setLoading] = useState(true);
@@ -30,12 +105,43 @@ export default function Home() {
   const [accepting, setAccepting] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
   const [userId, setUserId] = useState<string | null>(null);
-  const [profile, setProfile] = useState<{ username: string; balance: number } | null>(null);
+  const [profile, setProfile] = useState<{ username: string; balance: number; wins: number; losses: number } | null>(null);
   const [duels, setDuels] = useState<Duel[]>([]);
+  const [acceptedNotice, setAcceptedNotice] = useState<string | null>(null);
+  const userIdRef = useRef<string | null>(null);
 
   useEffect(() => {
     checkUser();
+
+    const channel = supabase
+      .channel("duels-list")
+      .on("postgres_changes", { event: "UPDATE", schema: "public", table: "duels" }, (payload) => {
+        const oldRow = payload.old as Duel;
+        const newRow = payload.new as Duel;
+        if (
+          oldRow.status === "open" &&
+          newRow.status === "live" &&
+          newRow.creator_id === userIdRef.current
+        ) {
+          setAcceptedNotice("Твой вызов принят! Дуэль началась.");
+        }
+        loadDuels();
+      })
+      .on("postgres_changes", { event: "INSERT", schema: "public", table: "duels" }, () => {
+        loadDuels();
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, []);
+
+  useEffect(() => {
+    if (!acceptedNotice) return;
+    const t = setTimeout(() => setAcceptedNotice(null), 6000);
+    return () => clearTimeout(t);
+  }, [acceptedNotice]);
 
   async function checkUser() {
     const { data: { session } } = await supabase.auth.getSession();
@@ -46,17 +152,18 @@ export default function Home() {
     }
 
     setUserId(session.user.id);
+    userIdRef.current = session.user.id;
 
     const { data } = await supabase
       .from("profiles")
-      .select("username, balance")
+      .select("username, balance, wins, losses")
       .eq("id", session.user.id)
       .single();
 
     if (data) {
       setProfile(data);
     } else {
-      setProfile({ username: session.user.email?.split("@")[0] || "Игрок", balance: 0 });
+      setProfile({ username: session.user.email?.split("@")[0] || "Игрок", balance: 0, wins: 0, losses: 0 });
     }
 
     await loadDuels();
@@ -76,7 +183,7 @@ export default function Home() {
     if (!userId) return;
     const { data } = await supabase
       .from("profiles")
-      .select("username, balance")
+      .select("username, balance, wins, losses")
       .eq("id", userId)
       .single();
     if (data) setProfile(data);
@@ -122,7 +229,7 @@ export default function Home() {
     await loadDuels();
     setPublishing(false);
     setShowCreate(false);
-    setTask("");
+    setTask(TASK_BANK[category][difficulty][0]);
     setStake(1000);
   }
 
@@ -135,26 +242,25 @@ export default function Home() {
     setAccepting(true);
     setErrorMsg("");
 
-    const { error: updateError } = await supabase
-      .from("duels")
-      .update({ opponent_id: userId, status: "live" })
-      .eq("id", duel.id)
-      .eq("status", "open"); // защита от двойного принятия
+    const { error: acceptError } = await supabase.rpc("accept_duel", { p_duel_id: duel.id });
 
-    if (updateError) {
-      setErrorMsg(updateError.message);
+    if (acceptError) {
+      setErrorMsg(
+        acceptError.message.includes("already accepted")
+          ? "Дуэль уже принята другим игроком."
+          : acceptError.message.includes("insufficient balance")
+          ? "Недостаточно средств чтобы принять вызов"
+          : acceptError.message
+      );
       setAccepting(false);
+      await loadDuels();
       return;
     }
 
-    const newBalance = profile.balance - duel.stake;
-    await supabase.from("profiles").update({ balance: newBalance }).eq("id", userId);
-    setProfile({ ...profile, balance: newBalance });
-
+    await refreshProfile();
     await loadDuels();
     setAccepting(false);
-    setSelectedDuel(null);
-    setTab("live");
+    router.push(`/duel/${duel.id}`);
   }
 
   const filtered = duels.filter(d =>
@@ -176,11 +282,12 @@ export default function Home() {
   if (selectedDuel) {
     const isMine = selectedDuel.creator_id === userId;
     const duelPrize = Math.round(selectedDuel.stake * 2 * 0.9);
-    const minutesAgo = Math.max(0, Math.round((Date.now() - new Date(selectedDuel.created_at).getTime()) / 60000));
+    const minutesAgo = Math.max(0, Math.round((Date.now() - parseUtc(selectedDuel.created_at).getTime()) / 60000));
 
     return (
       <div className="min-h-screen bg-gray-950 text-white">
-        <div className="max-w-lg mx-auto px-4 py-6">
+        {acceptedNotice && <AcceptedToast text={acceptedNotice} />}
+        <div className="max-w-xl mx-auto px-6 py-8">
           <button onClick={() => setSelectedDuel(null)} className="flex items-center gap-2 text-gray-400 hover:text-white mb-6 transition-colors">
             ← Назад
           </button>
@@ -221,12 +328,30 @@ export default function Home() {
 
           {isMine ? (
             <div className="bg-gray-900 border border-gray-800 rounded-xl p-4 text-center text-gray-400 text-sm">
-              Это твоя дуэль. Жди когда кто-то примет вызов.
+              {selectedDuel.status === "live" ? (
+                <button
+                  onClick={() => router.push(`/duel/${selectedDuel.id}`)}
+                  className="w-full bg-red-600 hover:bg-red-700 text-white font-medium py-3 rounded-xl transition-colors"
+                >
+                  Войти в дуэль →
+                </button>
+              ) : (
+                "Это твоя дуэль. Жди когда кто-то примет вызов."
+              )}
             </div>
           ) : selectedDuel.status === "live" ? (
-            <div className="bg-gray-900 border border-gray-800 rounded-xl p-4 text-center text-gray-400 text-sm">
-              Дуэль уже принята другим игроком.
-            </div>
+            selectedDuel.opponent_id === userId ? (
+              <button
+                onClick={() => router.push(`/duel/${selectedDuel.id}`)}
+                className="w-full bg-red-600 hover:bg-red-700 text-white font-medium py-3 rounded-xl transition-colors"
+              >
+                Войти в дуэль →
+              </button>
+            ) : (
+              <div className="bg-gray-900 border border-gray-800 rounded-xl p-4 text-center text-gray-400 text-sm">
+                Дуэль уже принята другим игроком.
+              </div>
+            )
           ) : (
             <>
               <div className="bg-gray-900 rounded-xl p-4 border border-gray-800 mb-4">
@@ -259,7 +384,8 @@ export default function Home() {
   if (showCreate) {
     return (
       <div className="min-h-screen bg-gray-950 text-white">
-        <div className="max-w-lg mx-auto px-4 py-6">
+        {acceptedNotice && <AcceptedToast text={acceptedNotice} />}
+        <div className="max-w-xl mx-auto px-6 py-8">
           <button onClick={() => setShowCreate(false)} className="flex items-center gap-2 text-gray-400 hover:text-white mb-6 transition-colors">
             ← Назад
           </button>
@@ -267,12 +393,69 @@ export default function Home() {
 
           <div className="space-y-5">
             <div>
+              <label className="block text-sm text-gray-400 mb-2">Категория</label>
+              <div className="grid grid-cols-3 gap-2">
+                {Object.keys(TASK_BANK).map(cat => (
+                  <button
+                    key={cat}
+                    onClick={() => {
+                      setCategory(cat);
+                      setTask(TASK_BANK[cat][difficulty][0]);
+                    }}
+                    className={`text-sm py-2 rounded-xl border transition-colors ${category === cat ? "bg-red-600 border-red-600 text-white" : "bg-gray-900 border-gray-800 text-gray-400 hover:border-gray-700"}`}
+                  >
+                    {cat}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-sm text-gray-400 mb-2">Сложность</label>
+              <div className="grid grid-cols-3 gap-2">
+                {["Легко", "Средне", "Сложно"].map(diff => (
+                  <button
+                    key={diff}
+                    onClick={() => {
+                      setDifficulty(diff);
+                      setTask(TASK_BANK[category][diff][0]);
+                    }}
+                    className={`text-sm py-2 rounded-xl border transition-colors ${
+                      difficulty === diff
+                        ? diff === "Легко" ? "bg-green-600 border-green-600 text-white"
+                        : diff === "Средне" ? "bg-yellow-600 border-yellow-600 text-white"
+                        : "bg-red-600 border-red-600 text-white"
+                        : "bg-gray-900 border-gray-800 text-gray-400 hover:border-gray-700"
+                    }`}
+                  >
+                    {diff}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div>
               <label className="block text-sm text-gray-400 mb-2">Задача</label>
+              <div className="space-y-2">
+                {TASK_BANK[category][difficulty].map(t => (
+                  <button
+                    key={t}
+                    onClick={() => setTask(t)}
+                    className={`w-full text-left text-sm p-3 rounded-xl border transition-colors ${task === t ? "bg-gray-800 border-red-500 text-white" : "bg-gray-900 border-gray-800 text-gray-400 hover:border-gray-700"}`}
+                  >
+                    {t}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-sm text-gray-400 mb-2">Или своя задача</label>
               <textarea
                 value={task}
                 onChange={e => setTask(e.target.value)}
-                className="w-full bg-gray-900 border border-gray-800 rounded-xl p-3 text-white placeholder-gray-600 resize-none h-24 focus:outline-none focus:border-gray-600"
-                placeholder="Например: решить Two Sum на LeetCode быстрее соперника..."
+                className="w-full bg-gray-900 border border-gray-800 rounded-xl p-3 text-white placeholder-gray-600 resize-none h-20 focus:outline-none focus:border-gray-600"
+                placeholder="Можешь написать свою задачу или оставить выбранную выше..."
               />
             </div>
 
@@ -359,17 +542,27 @@ export default function Home() {
 
   return (
     <div className="min-h-screen bg-gray-950 text-white">
-      <div className="max-w-lg mx-auto px-4 py-6">
+      {acceptedNotice && <AcceptedToast text={acceptedNotice} />}
+      <div className="max-w-6xl mx-auto px-6 py-6">
 
         {/* Header */}
         <div className="flex items-center justify-between mb-6">
           <div className="text-2xl font-bold tracking-tight">
             duel<span className="text-red-500">.</span>dev
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-4">
+            <span className="text-sm text-gray-400">
+              Привет, <span className="text-gray-300">{profile?.username}</span>!
+            </span>
             <span className="text-sm text-gray-400">
               Баланс: <span className="text-white font-medium">{profile?.balance?.toLocaleString("ru-RU") || 0} ₽</span>
             </span>
+            <button
+              onClick={() => setShowCreate(true)}
+              className="bg-red-600 hover:bg-red-700 text-white text-sm font-medium px-4 py-2 rounded-xl transition-colors"
+            >
+              + Бросить вызов
+            </button>
             <button
               onClick={handleLogout}
               className="w-8 h-8 rounded-full bg-blue-600 flex items-center justify-center text-xs font-medium hover:bg-blue-700 transition-colors"
@@ -380,17 +573,30 @@ export default function Home() {
           </div>
         </div>
 
-        <div className="text-sm text-gray-500 mb-4">
-          Привет, <span className="text-gray-300">{profile?.username}</span>!
-        </div>
-
-        {/* Stats */}
-        <div className="grid grid-cols-2 gap-3 mb-6">
-          <div className="bg-gray-900 rounded-xl p-4 border border-gray-800">
+        {/* Статистика */}
+        <div className="grid grid-cols-5 gap-3 mb-6">
+          <div className="bg-gray-900 rounded-xl p-4 border border-gray-800 text-center">
+            <div className="text-xs text-gray-500 mb-1">Победы</div>
+            <div className="text-2xl font-semibold text-green-400">{profile?.wins ?? 0}</div>
+          </div>
+          <div className="bg-gray-900 rounded-xl p-4 border border-gray-800 text-center">
+            <div className="text-xs text-gray-500 mb-1">Поражения</div>
+            <div className="text-2xl font-semibold text-red-400">{profile?.losses ?? 0}</div>
+          </div>
+          <div className="bg-gray-900 rounded-xl p-4 border border-gray-800 text-center">
+            <div className="text-xs text-gray-500 mb-1">Винрейт</div>
+            <div className="text-2xl font-semibold">
+              {profile && profile.wins + profile.losses > 0
+                ? Math.round((profile.wins / (profile.wins + profile.losses)) * 100)
+                : 0}
+              %
+            </div>
+          </div>
+          <div className="bg-gray-900 rounded-xl p-4 border border-gray-800 text-center">
             <div className="text-xs text-gray-500 mb-1">Открытых дуэлей</div>
             <div className="text-2xl font-semibold">{duels.filter(d => d.status === "open").length}</div>
           </div>
-          <div className="bg-gray-900 rounded-xl p-4 border border-gray-800">
+          <div className="bg-gray-900 rounded-xl p-4 border border-gray-800 text-center">
             <div className="text-xs text-gray-500 mb-1">Банк всего</div>
             <div className="text-2xl font-semibold">{duels.reduce((sum, d) => sum + d.stake * 2, 0).toLocaleString("ru-RU")} ₽</div>
           </div>
@@ -411,10 +617,10 @@ export default function Home() {
         </div>
 
         {/* Duel cards */}
-        <div className="space-y-3 mb-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
           {filtered.map(d => {
             const initials = d.profiles?.username?.slice(0, 2).toUpperCase() || "??";
-            const minutesAgo = Math.max(0, Math.round((Date.now() - new Date(d.created_at).getTime()) / 60000));
+            const minutesAgo = Math.max(0, Math.round((Date.now() - parseUtc(d.created_at).getTime()) / 60000));
             const isMine = d.creator_id === userId;
             return (
               <div
@@ -446,17 +652,9 @@ export default function Home() {
             );
           })}
           {filtered.length === 0 && (
-            <div className="text-center text-gray-600 py-12">Нет активных дуэлей. Создай первую!</div>
+            <div className="col-span-full text-center text-gray-600 py-12">Нет активных дуэлей. Создай первую!</div>
           )}
         </div>
-
-        {/* CTA */}
-        <button
-          onClick={() => setShowCreate(true)}
-          className="w-full bg-red-600 hover:bg-red-700 text-white font-medium py-3 rounded-xl transition-colors"
-        >
-          + Бросить вызов
-        </button>
       </div>
     </div>
   );
