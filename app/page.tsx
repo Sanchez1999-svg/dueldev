@@ -16,7 +16,6 @@ type Duel = {
   creator_id: string;
   opponent_id: string | null;
   winner_id: string | null;
-  profiles?: { username: string };
 };
 
 const TASK_BANK: Record<string, Record<string, string[]>> = {
@@ -178,17 +177,17 @@ export default function Home() {
   async function loadDuels() {
     const { data } = await supabase
       .from("duels")
-      .select("*, profiles!duels_creator_id_fkey(username)")
+      .select("*")
       .order("created_at", { ascending: false });
 
     if (!data) return;
     setDuels(data as Duel[]);
 
-    const opponentIds = [...new Set(data.map(d => d.opponent_id).filter((id): id is string => !!id))];
-    if (opponentIds.length > 0) {
-      const { data: opponents } = await supabase.from("profiles").select("id, username").in("id", opponentIds);
-      if (opponents) {
-        setProfilesMap(prev => ({ ...prev, ...Object.fromEntries(opponents.map(p => [p.id, p.username])) }));
+    const ids = [...new Set(data.flatMap(d => [d.creator_id, d.opponent_id]).filter((id): id is string => !!id))];
+    if (ids.length > 0) {
+      const { data: people } = await supabase.from("public_profiles").select("id, username").in("id", ids);
+      if (people) {
+        setProfilesMap(prev => ({ ...prev, ...Object.fromEntries(people.map(p => [p.id, p.username])) }));
       }
     }
   }
@@ -196,7 +195,7 @@ export default function Home() {
   async function loadLeaderboard() {
     setLeaderboardLoading(true);
     const { data } = await supabase
-      .from("profiles")
+      .from("public_profiles")
       .select("username, wins, losses")
       .order("wins", { ascending: false })
       .limit(50);
@@ -363,10 +362,10 @@ export default function Home() {
           <div className="bg-gray-900 border border-gray-800 rounded-xl p-4 mb-5">
             <div className="flex items-center gap-2 mb-4">
               <div className="w-10 h-10 rounded-full bg-blue-900 flex items-center justify-center text-sm font-medium">
-                {selectedDuel.profiles?.username?.slice(0, 2).toUpperCase() || "??"}
+                {(profilesMap[selectedDuel.creator_id] || "??").slice(0, 2).toUpperCase()}
               </div>
               <div>
-                <div className="text-sm font-medium">{selectedDuel.profiles?.username || "Игрок"}</div>
+                <div className="text-sm font-medium">{profilesMap[selectedDuel.creator_id] || "Игрок"}</div>
                 <div className="text-xs text-gray-500">{minutesAgo} мин назад</div>
               </div>
             </div>
@@ -695,7 +694,7 @@ export default function Home() {
 
             if (tab === "history") {
               const opponentId = isMine ? d.opponent_id : d.creator_id;
-              const opponentName = (isMine ? (opponentId ? profilesMap[opponentId] : null) : d.profiles?.username) || "Игрок";
+              const opponentName = (opponentId ? profilesMap[opponentId] : null) || "Игрок";
               const initials = opponentName.slice(0, 2).toUpperCase();
               const dateStr = parseUtc(d.created_at).toLocaleDateString("ru-RU", { day: "2-digit", month: "2-digit", year: "numeric" });
               const isDraw = d.status === "voided";
@@ -727,7 +726,8 @@ export default function Home() {
               );
             }
 
-            const initials = d.profiles?.username?.slice(0, 2).toUpperCase() || "??";
+            const creatorName = profilesMap[d.creator_id] || "Игрок";
+            const initials = creatorName.slice(0, 2).toUpperCase();
             const minutesAgo = Math.max(0, Math.round((Date.now() - parseUtc(d.created_at).getTime()) / 60000));
             return (
               <div
@@ -739,7 +739,7 @@ export default function Home() {
                   <div className="flex items-center gap-2">
                     <div className="w-8 h-8 rounded-full bg-blue-900 flex items-center justify-center text-xs font-medium">{initials}</div>
                     <div>
-                      <div className="text-sm font-medium">{d.profiles?.username || "Игрок"} {isMine && <span className="text-gray-500">(ты)</span>}</div>
+                      <div className="text-sm font-medium">{creatorName} {isMine && <span className="text-gray-500">(ты)</span>}</div>
                       <div className="text-xs text-gray-500">{minutesAgo} мин назад</div>
                     </div>
                   </div>

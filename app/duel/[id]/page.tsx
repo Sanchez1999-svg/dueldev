@@ -16,7 +16,6 @@ type Duel = {
   creator_id: string;
   opponent_id: string | null;
   winner_id: string | null;
-  profiles?: { username: string };
 };
 
 type Solution = {
@@ -138,7 +137,7 @@ export default function DuelRoom() {
   async function loadDuel(uid: string) {
     const { data } = await supabase
       .from("duels")
-      .select("*, profiles!duels_creator_id_fkey(username)")
+      .select("*")
       .eq("id", duelId)
       .single();
 
@@ -152,7 +151,7 @@ export default function DuelRoom() {
     const opponentId = data.creator_id === uid ? data.opponent_id : data.creator_id;
     if (opponentId) {
       const { data: opp } = await supabase
-        .from("profiles")
+        .from("public_profiles")
         .select("username")
         .eq("id", opponentId)
         .single();
