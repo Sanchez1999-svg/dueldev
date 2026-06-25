@@ -15,6 +15,7 @@ type Duel = {
   started_at: string | null;
   creator_id: string;
   opponent_id: string | null;
+  winner_id: string | null;
   profiles?: { username: string };
 };
 
@@ -109,6 +110,10 @@ export default function Home() {
   const [duels, setDuels] = useState<Duel[]>([]);
   const [acceptedNotice, setAcceptedNotice] = useState<string | null>(null);
   const userIdRef = useRef<string | null>(null);
+  const [profilesMap, setProfilesMap] = useState<Record<string, string>>({});
+  const [showLeaderboard, setShowLeaderboard] = useState(false);
+  const [leaderboard, setLeaderboard] = useState<{ username: string; wins: number; losses: number }[]>([]);
+  const [leaderboardLoading, setLeaderboardLoading] = useState(false);
 
   useEffect(() => {
     checkUser();
@@ -176,7 +181,27 @@ export default function Home() {
       .select("*, profiles!duels_creator_id_fkey(username)")
       .order("created_at", { ascending: false });
 
-    if (data) setDuels(data as Duel[]);
+    if (!data) return;
+    setDuels(data as Duel[]);
+
+    const opponentIds = [...new Set(data.map(d => d.opponent_id).filter((id): id is string => !!id))];
+    if (opponentIds.length > 0) {
+      const { data: opponents } = await supabase.from("profiles").select("id, username").in("id", opponentIds);
+      if (opponents) {
+        setProfilesMap(prev => ({ ...prev, ...Object.fromEntries(opponents.map(p => [p.id, p.username])) }));
+      }
+    }
+  }
+
+  async function loadLeaderboard() {
+    setLeaderboardLoading(true);
+    const { data } = await supabase
+      .from("profiles")
+      .select("username, wins, losses")
+      .order("wins", { ascending: false })
+      .limit(50);
+    if (data) setLeaderboard(data);
+    setLeaderboardLoading(false);
   }
 
   async function refreshProfile() {
@@ -257,9 +282,11 @@ export default function Home() {
     router.push(`/duel/${duel.id}`);
   }
 
-  const filtered = duels.filter(d =>
-    tab === "open" ? d.status === "open" : d.status === "live"
-  );
+  const filtered = duels.filter(d => {
+    if (tab === "open") return d.status === "open";
+    if (tab === "live") return d.status === "live";
+    return (d.status === "finished" || d.status === "voided") && (d.creator_id === userId || d.opponent_id === userId);
+  });
 
   const commission = 0.1;
   const prize = Math.round(stake * 2 * (1 - commission));
@@ -268,6 +295,51 @@ export default function Home() {
     return (
       <div className="min-h-screen bg-gray-950 text-white flex items-center justify-center">
         <div className="text-gray-500">Загрузка...</div>
+      </div>
+    );
+  }
+
+  // Экран лидерборда
+  if (showLeaderboard) {
+    return (
+      <div className="min-h-screen bg-gray-950 text-white">
+        <div className="max-w-xl mx-auto px-6 py-8">
+          <button onClick={() => setShowLeaderboard(false)} className="flex items-center gap-2 text-gray-400 hover:text-white mb-6 transition-colors">
+            ← Назад
+          </button>
+          <h1 className="text-2xl font-semibold mb-6">🏆 Топ игроков</h1>
+
+          {leaderboardLoading ? (
+            <div className="text-center text-gray-500 py-12">Загрузка...</div>
+          ) : (
+            <div className="space-y-2">
+              {leaderboard.map((p, i) => {
+                const total = p.wins + p.losses;
+                const winrate = total > 0 ? Math.round((p.wins / total) * 100) : 0;
+                const isMe = p.username === profile?.username;
+                return (
+                  <div
+                    key={p.username + i}
+                    className={`flex items-center justify-between rounded-xl p-3 border ${isMe ? "bg-red-900/20 border-red-800" : "bg-gray-900 border-gray-800"}`}
+                  >
+                    <div className="flex items-center gap-3">
+                      <span className="text-sm text-gray-500 w-6 text-right">{i + 1}</span>
+                      <span className="text-sm font-medium">{p.username} {isMe && <span className="text-gray-500">(ты)</span>}</span>
+                    </div>
+                    <div className="flex items-center gap-4 text-xs text-gray-400">
+                      <span className="text-green-400">{p.wins}W</span>
+                      <span className="text-red-400">{p.losses}L</span>
+                      <span className="w-10 text-right">{winrate}%</span>
+                    </div>
+                  </div>
+                );
+              })}
+              {leaderboard.length === 0 && (
+                <div className="text-center text-gray-600 py-12">Пока нет данных</div>
+              )}
+            </div>
+          )}
+        </div>
       </div>
     );
   }
@@ -552,6 +624,12 @@ export default function Home() {
               Баланс: <span className="text-white font-medium">{profile?.balance?.toLocaleString("ru-RU") || 0} ₽</span>
             </span>
             <button
+              onClick={() => { setShowLeaderboard(true); loadLeaderboard(); }}
+              className="bg-gray-800 hover:bg-gray-700 text-white text-sm font-medium px-4 py-2 rounded-xl transition-colors"
+            >
+              🏆 Топ игроков
+            </button>
+            <button
               onClick={() => setShowCreate(true)}
               className="bg-red-600 hover:bg-red-700 text-white text-sm font-medium px-4 py-2 rounded-xl transition-colors"
             >
@@ -598,7 +676,7 @@ export default function Home() {
 
         {/* Tabs */}
         <div className="flex border-b border-gray-800 mb-4">
-          {[["open", "Открытые"], ["live", "Идут сейчас"]].map(([key, label]) => (
+          {[["open", "Открытые"], ["live", "Идут сейчас"], ["history", "История"]].map(([key, label]) => (
             <button
               key={key}
               onClick={() => setTab(key)}
@@ -613,9 +691,44 @@ export default function Home() {
         {/* Duel cards */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
           {filtered.map(d => {
+            const isMine = d.creator_id === userId;
+
+            if (tab === "history") {
+              const opponentId = isMine ? d.opponent_id : d.creator_id;
+              const opponentName = (isMine ? (opponentId ? profilesMap[opponentId] : null) : d.profiles?.username) || "Игрок";
+              const initials = opponentName.slice(0, 2).toUpperCase();
+              const dateStr = parseUtc(d.created_at).toLocaleDateString("ru-RU", { day: "2-digit", month: "2-digit", year: "numeric" });
+              const isDraw = d.status === "voided";
+              const iWon = d.winner_id === userId;
+              const resultLabel = isDraw ? "Ничья" : iWon ? "Победа" : "Поражение";
+              const resultClass = isDraw ? "bg-gray-800 text-gray-400" : iWon ? "bg-green-900/50 text-green-400" : "bg-red-900/50 text-red-400";
+              const amount = isDraw ? d.stake : iWon ? Math.round(d.stake * 2 * 0.9) : -d.stake;
+
+              return (
+                <div key={d.id} className="bg-gray-900 border border-gray-800 rounded-xl p-4">
+                  <div className="flex items-start justify-between mb-3">
+                    <div className="flex items-center gap-2">
+                      <div className="w-8 h-8 rounded-full bg-blue-900 flex items-center justify-center text-xs font-medium">{initials}</div>
+                      <div>
+                        <div className="text-sm font-medium">vs {opponentName}</div>
+                        <div className="text-xs text-gray-500">{dateStr}</div>
+                      </div>
+                    </div>
+                    <span className={`text-xs px-2 py-1 rounded-full font-medium ${resultClass}`}>{resultLabel}</span>
+                  </div>
+                  <p className="text-sm text-gray-300 mb-3">{d.task}</p>
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs bg-blue-900/40 text-blue-400 px-2 py-1 rounded-full">{d.language}</span>
+                    <div className={`text-lg font-semibold ${amount > 0 ? "text-green-400" : amount < 0 ? "text-red-400" : "text-gray-400"}`}>
+                      {amount > 0 ? "+" : ""}{amount.toLocaleString("ru-RU")} ₽
+                    </div>
+                  </div>
+                </div>
+              );
+            }
+
             const initials = d.profiles?.username?.slice(0, 2).toUpperCase() || "??";
             const minutesAgo = Math.max(0, Math.round((Date.now() - parseUtc(d.created_at).getTime()) / 60000));
-            const isMine = d.creator_id === userId;
             return (
               <div
                 key={d.id}
@@ -646,7 +759,9 @@ export default function Home() {
             );
           })}
           {filtered.length === 0 && (
-            <div className="col-span-full text-center text-gray-600 py-12">Нет активных дуэлей. Создай первую!</div>
+            <div className="col-span-full text-center text-gray-600 py-12">
+              {tab === "history" ? "Пока нет завершённых дуэлей" : "Нет активных дуэлей. Создай первую!"}
+            </div>
           )}
         </div>
       </div>
