@@ -18,6 +18,8 @@ type Duel = {
   winner_id: string | null;
 };
 
+const TASK_MAX_LENGTH = 2000;
+
 const TASK_BANK: Record<string, Record<string, string[]>> = {
   "Алгоритмы": {
     "Легко": [
@@ -113,6 +115,7 @@ export default function Home() {
   const [showLeaderboard, setShowLeaderboard] = useState(false);
   const [leaderboard, setLeaderboard] = useState<{ username: string; wins: number; losses: number }[]>([]);
   const [leaderboardLoading, setLeaderboardLoading] = useState(false);
+  const [unreadDuelIds, setUnreadDuelIds] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
     checkUser();
@@ -133,6 +136,12 @@ export default function Home() {
       })
       .on("postgres_changes", { event: "INSERT", schema: "public", table: "duels" }, () => {
         loadDuels();
+      })
+      .on("postgres_changes", { event: "INSERT", schema: "public", table: "messages" }, (payload) => {
+        const msg = payload.new as { duel_id: string; sender_id: string };
+        if (msg.sender_id !== userIdRef.current) {
+          setUnreadDuelIds(prev => ({ ...prev, [msg.duel_id]: true }));
+        }
       })
       .subscribe();
 
@@ -223,6 +232,10 @@ export default function Home() {
       setErrorMsg("Опиши задачу для дуэли");
       return;
     }
+    if (task.length > TASK_MAX_LENGTH) {
+      setErrorMsg(`Задача слишком длинная (максимум ${TASK_MAX_LENGTH} символов)`);
+      return;
+    }
     if (!profile || profile.balance < stake) {
       setErrorMsg("Недостаточно средств на балансе");
       return;
@@ -241,7 +254,7 @@ export default function Home() {
     });
 
     if (duelError) {
-      setErrorMsg(duelError.message);
+      setErrorMsg(translateRpcError(duelError.message));
       setPublishing(false);
       return;
     }
@@ -395,7 +408,14 @@ export default function Home() {
             <div className="bg-gray-900 border border-gray-800 rounded-xl p-4 text-center text-gray-400 text-sm">
               {selectedDuel.status === "live" ? (
                 <button
-                  onClick={() => router.push(`/duel/${selectedDuel.id}`)}
+                  onClick={() => {
+                  setUnreadDuelIds(prev => {
+                    const next = { ...prev };
+                    delete next[selectedDuel.id];
+                    return next;
+                  });
+                  router.push(`/duel/${selectedDuel.id}`);
+                }}
                   className="w-full bg-red-600 hover:bg-red-700 text-white font-medium py-3 rounded-xl transition-colors"
                 >
                   Войти в дуэль →
@@ -407,7 +427,14 @@ export default function Home() {
           ) : selectedDuel.status === "live" ? (
             selectedDuel.opponent_id === userId ? (
               <button
-                onClick={() => router.push(`/duel/${selectedDuel.id}`)}
+                onClick={() => {
+                  setUnreadDuelIds(prev => {
+                    const next = { ...prev };
+                    delete next[selectedDuel.id];
+                    return next;
+                  });
+                  router.push(`/duel/${selectedDuel.id}`);
+                }}
                 className="w-full bg-red-600 hover:bg-red-700 text-white font-medium py-3 rounded-xl transition-colors"
               >
                 Войти в дуэль →
@@ -515,10 +542,16 @@ export default function Home() {
             </div>
 
             <div>
-              <label className="block text-sm text-gray-400 mb-2">Или своя задача</label>
+              <label className="block text-sm text-gray-400 mb-2 flex items-center justify-between">
+                <span>Или своя задача</span>
+                <span className={task.length > TASK_MAX_LENGTH ? "text-red-400" : "text-gray-600"}>
+                  {task.length}/{TASK_MAX_LENGTH}
+                </span>
+              </label>
               <textarea
                 value={task}
                 onChange={e => setTask(e.target.value)}
+                maxLength={TASK_MAX_LENGTH}
                 className="w-full bg-gray-900 border border-gray-800 rounded-xl p-3 text-white placeholder-gray-600 resize-none h-20 focus:outline-none focus:border-gray-600"
                 placeholder="Можешь написать свою задачу или оставить выбранную выше..."
               />
@@ -739,7 +772,12 @@ export default function Home() {
                   <div className="flex items-center gap-2">
                     <div className="w-8 h-8 rounded-full bg-blue-900 flex items-center justify-center text-xs font-medium">{initials}</div>
                     <div>
-                      <div className="text-sm font-medium">{creatorName} {isMine && <span className="text-gray-500">(ты)</span>}</div>
+                      <div className="text-sm font-medium">
+                        {creatorName} {isMine && <span className="text-gray-500">(ты)</span>}
+                        {unreadDuelIds[d.id] && (
+                          <span className="ml-2 inline-flex items-center gap-1 text-xs text-yellow-400">💬 новое</span>
+                        )}
+                      </div>
                       <div className="text-xs text-gray-500">{minutesAgo} мин назад</div>
                     </div>
                   </div>
