@@ -4,6 +4,8 @@ import { useRouter, useParams } from "next/navigation";
 import { supabase } from "../../supabase";
 import { parseUtc, translateRpcError } from "../../utils";
 
+const CODE_MAX_LENGTH = 20000;
+
 type Duel = {
   id: string;
   task: string;
@@ -239,6 +241,10 @@ export default function DuelRoom() {
 
   async function handleSubmit() {
     if (!code.trim() || !userId) return;
+    if (code.length > CODE_MAX_LENGTH) {
+      setErrorMsg(`Решение слишком длинное (максимум ${CODE_MAX_LENGTH} символов)`);
+      return;
+    }
     setSubmitting(true);
     setErrorMsg("");
 
@@ -536,13 +542,19 @@ export default function DuelRoom() {
           <main>
             <div className="mb-2 flex items-center justify-between">
               <span className="text-sm text-gray-400">Твой код</span>
-              <span className="text-xs text-gray-600">{duel.language}</span>
+              <div className="flex items-center gap-3">
+                <span className={code.length > CODE_MAX_LENGTH ? "text-red-400 text-xs" : "text-gray-600 text-xs"}>
+                  {code.length}/{CODE_MAX_LENGTH}
+                </span>
+                <span className="text-xs text-gray-600">{duel.language}</span>
+              </div>
             </div>
 
             <textarea
               value={code}
               onChange={e => setCode(e.target.value)}
               disabled={!!mySolution || (isTimeUp && !mySolution)}
+              maxLength={CODE_MAX_LENGTH}
               spellCheck={false}
               className="w-full h-[60vh] min-h-[420px] bg-black border border-gray-800 rounded-xl p-4 font-mono text-sm text-green-400 placeholder-gray-700 resize-none focus:outline-none focus:border-gray-600 disabled:opacity-60"
               placeholder={`// Пиши решение здесь...\n// Например:\nfunction solve() {\n  \n}`}
