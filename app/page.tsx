@@ -2,7 +2,7 @@
 import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "./supabase";
-import { parseUtc } from "./utils";
+import { parseUtc, translateRpcError } from "./utils";
 
 type Duel = {
   id: string;
@@ -245,13 +245,7 @@ export default function Home() {
     const { error: acceptError } = await supabase.rpc("accept_duel", { p_duel_id: duel.id });
 
     if (acceptError) {
-      setErrorMsg(
-        acceptError.message.includes("already accepted")
-          ? "Дуэль уже принята другим игроком."
-          : acceptError.message.includes("insufficient balance")
-          ? "Недостаточно средств чтобы принять вызов"
-          : acceptError.message
-      );
+      setErrorMsg(translateRpcError(acceptError.message));
       setAccepting(false);
       await loadDuels();
       return;

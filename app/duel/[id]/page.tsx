@@ -2,7 +2,7 @@
 import { useState, useEffect, useRef } from "react";
 import { useRouter, useParams } from "next/navigation";
 import { supabase } from "../../supabase";
-import { parseUtc } from "../../utils";
+import { parseUtc, translateRpcError } from "../../utils";
 
 type Duel = {
   id: string;
@@ -205,7 +205,7 @@ export default function DuelRoom() {
     });
 
     if (error) {
-      setErrorMsg(error.message);
+      setErrorMsg(translateRpcError(error.message));
     } else {
       await refreshData();
     }
@@ -224,7 +224,7 @@ export default function DuelRoom() {
     });
 
     if (error) {
-      setErrorMsg(error.message);
+      setErrorMsg(translateRpcError(error.message));
       setVotingFor(false);
       return;
     }
@@ -238,10 +238,13 @@ export default function DuelRoom() {
       .eq("duel_id", duelId);
 
     if (allVotes && allVotes.length === 2) {
-      if (allVotes[0].voted_for === allVotes[1].voted_for) {
-        await supabase.rpc("finish_duel", { p_duel_id: duelId, p_winner_id: allVotes[0].voted_for });
-      } else {
-        await supabase.rpc("void_duel", { p_duel_id: duelId });
+      const { error: resolveError } =
+        allVotes[0].voted_for === allVotes[1].voted_for
+          ? await supabase.rpc("finish_duel", { p_duel_id: duelId, p_winner_id: allVotes[0].voted_for })
+          : await supabase.rpc("void_duel", { p_duel_id: duelId });
+
+      if (resolveError) {
+        setErrorMsg(translateRpcError(resolveError.message));
       }
       await refreshData();
     }
