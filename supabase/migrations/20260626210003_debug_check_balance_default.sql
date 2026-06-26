@@ -1,0 +1,4 @@
+-- No-op. This migration slot was created by accident while inspecting the
+-- profiles.balance default; it ran empty and is kept only to keep local and
+-- remote migration history in sync. The actual starting-balance change is in
+-- 20260626210118_starting_balance_for_new_users.sql.
