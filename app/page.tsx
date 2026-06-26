@@ -832,6 +832,11 @@ export default function Home() {
             </div>
           )}
         </div>
+
+        {/* Дисклеймер */}
+        <div className="border-t border-gray-800 mt-4 pt-6 text-center text-xs text-gray-600">
+          DLC — внутриигровая валюта без реальной денежной ценности. Дуэли носят развлекательный характер и не являются азартной игрой на деньги.
+        </div>
       </div>
     </div>
   );

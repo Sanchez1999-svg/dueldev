@@ -20,6 +20,7 @@ const RPC_ERROR_MESSAGES: [string, string][] = [
   ["deadline has not passed yet", "Время дуэли ещё не истекло"],
   ["only the creator can cancel this duel", "Отменить вызов может только его создатель"],
   ["only an open duel can be cancelled", "Можно отменить только ещё не принятый вызов"],
+  ["open duel limit reached", "Слишком много открытых вызовов. Дождись, пока их примут, или отмени лишние (максимум 5)"],
   ["duel not found", "Дуэль не найдена"],
   ["must be authenticated", "Сессия истекла, перезайди"],
 ];
