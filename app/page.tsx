@@ -414,11 +414,11 @@ export default function Home() {
             <div className="border-t border-gray-800 pt-3 space-y-2">
               <div className="flex justify-between text-sm">
                 <span className="text-gray-400">Ставка каждого</span>
-                <span>{selectedDuel.stake.toLocaleString("ru-RU")} ₽</span>
+                <span>{selectedDuel.stake.toLocaleString("ru-RU")} DLC</span>
               </div>
               <div className="flex justify-between font-semibold">
                 <span>Победитель получит</span>
-                <span className="text-green-400">{duelPrize.toLocaleString("ru-RU")} ₽</span>
+                <span className="text-green-400">{duelPrize.toLocaleString("ru-RU")} DLC</span>
               </div>
             </div>
           </div>
@@ -450,7 +450,7 @@ export default function Home() {
                     disabled={cancelling}
                     className="w-full bg-gray-800 hover:bg-gray-700 disabled:opacity-50 text-white font-medium py-3 rounded-xl transition-colors"
                   >
-                    {cancelling ? "Отмена..." : `Отменить вызов и вернуть ${selectedDuel.stake.toLocaleString("ru-RU")} ₽`}
+                    {cancelling ? "Отмена..." : `Отменить вызов и вернуть ${selectedDuel.stake.toLocaleString("ru-RU")} DLC`}
                   </button>
                 </div>
               )}
@@ -480,7 +480,7 @@ export default function Home() {
               <div className="bg-gray-900 rounded-xl p-4 border border-gray-800 mb-4">
                 <div className="flex justify-between text-sm">
                   <span className="text-gray-400">Твой баланс</span>
-                  <span>{profile?.balance.toLocaleString("ru-RU")} ₽</span>
+                  <span>{profile?.balance.toLocaleString("ru-RU")} DLC</span>
                 </div>
               </div>
 
@@ -495,7 +495,7 @@ export default function Home() {
                 disabled={accepting}
                 className="w-full bg-red-600 hover:bg-red-700 disabled:opacity-50 text-white font-medium py-3 rounded-xl transition-colors"
               >
-                {accepting ? "Принятие вызова..." : `Принять вызов — ${selectedDuel.stake.toLocaleString("ru-RU")} ₽`}
+                {accepting ? "Принятие вызова..." : `Принять вызов — ${selectedDuel.stake.toLocaleString("ru-RU")} DLC`}
               </button>
             </>
           )}
@@ -619,7 +619,7 @@ export default function Home() {
 
             <div>
               <label className="block text-sm text-gray-400 mb-2">
-                Ставка: <span className="text-white font-medium">{stake.toLocaleString("ru-RU")} ₽</span>
+                Ставка: <span className="text-white font-medium">{stake.toLocaleString("ru-RU")} DLC</span>
               </label>
               <input
                 type="range" min={500} max={20000} step={500} value={stake}
@@ -627,26 +627,26 @@ export default function Home() {
                 className="w-full accent-red-500"
               />
               <div className="flex justify-between text-xs text-gray-500 mt-1">
-                <span>500 ₽</span><span>20 000 ₽</span>
+                <span>500 DLC</span><span>20 000 DLC</span>
               </div>
             </div>
 
             <div className="bg-gray-900 rounded-xl p-4 border border-gray-800">
               <div className="flex justify-between text-sm mb-2">
                 <span className="text-gray-400">Твой баланс</span>
-                <span>{profile?.balance.toLocaleString("ru-RU")} ₽</span>
+                <span>{profile?.balance.toLocaleString("ru-RU")} DLC</span>
               </div>
               <div className="flex justify-between text-sm mb-2">
                 <span className="text-gray-400">Банк дуэли</span>
-                <span>{(stake * 2).toLocaleString("ru-RU")} ₽</span>
+                <span>{(stake * 2).toLocaleString("ru-RU")} DLC</span>
               </div>
               <div className="flex justify-between text-sm mb-2">
                 <span className="text-gray-400">Комиссия платформы (10%)</span>
-                <span className="text-red-400">−{(stake * 2 * 0.1).toLocaleString("ru-RU")} ₽</span>
+                <span className="text-red-400">−{(stake * 2 * 0.1).toLocaleString("ru-RU")} DLC</span>
               </div>
               <div className="flex justify-between font-semibold border-t border-gray-800 pt-2 mt-2">
                 <span>Победитель получит</span>
-                <span className="text-green-400">{prize.toLocaleString("ru-RU")} ₽</span>
+                <span className="text-green-400">{prize.toLocaleString("ru-RU")} DLC</span>
               </div>
             </div>
 
@@ -661,7 +661,7 @@ export default function Home() {
               disabled={publishing}
               className="w-full bg-red-600 hover:bg-red-700 disabled:opacity-50 text-white font-medium py-3 rounded-xl transition-colors"
             >
-              {publishing ? "Публикация..." : `Опубликовать вызов — ${stake.toLocaleString("ru-RU")} ₽`}
+              {publishing ? "Публикация..." : `Опубликовать вызов — ${stake.toLocaleString("ru-RU")} DLC`}
             </button>
           </div>
         </div>
@@ -684,7 +684,7 @@ export default function Home() {
               Привет, <span className="text-gray-300">{profile?.username}</span>!
             </span>
             <span className="text-sm text-gray-400">
-              Баланс: <span className="text-white font-medium">{profile?.balance?.toLocaleString("ru-RU") || 0} ₽</span>
+              Баланс: <span className="text-white font-medium">{profile?.balance?.toLocaleString("ru-RU") || 0} DLC</span>
             </span>
             <button
               onClick={() => { setShowLeaderboard(true); loadLeaderboard(); }}
@@ -733,7 +733,7 @@ export default function Home() {
           </div>
           <div className="bg-gray-900 rounded-xl p-4 border border-gray-800 text-center">
             <div className="text-xs text-gray-500 mb-1">Банк всего</div>
-            <div className="text-2xl font-semibold">{duels.reduce((sum, d) => sum + d.stake * 2, 0).toLocaleString("ru-RU")} ₽</div>
+            <div className="text-2xl font-semibold">{duels.reduce((sum, d) => sum + d.stake * 2, 0).toLocaleString("ru-RU")} DLC</div>
           </div>
         </div>
 
@@ -783,7 +783,7 @@ export default function Home() {
                   <div className="flex items-center justify-between">
                     <span className="text-xs bg-blue-900/40 text-blue-400 px-2 py-1 rounded-full">{d.language}</span>
                     <div className={`text-lg font-semibold ${amount > 0 ? "text-green-400" : amount < 0 ? "text-red-400" : "text-gray-400"}`}>
-                      {amount > 0 ? "+" : ""}{amount.toLocaleString("ru-RU")} ₽
+                      {amount > 0 ? "+" : ""}{amount.toLocaleString("ru-RU")} DLC
                     </div>
                   </div>
                 </div>
@@ -819,8 +819,8 @@ export default function Home() {
                 <div className="flex items-center justify-between">
                   <span className="text-xs bg-blue-900/40 text-blue-400 px-2 py-1 rounded-full">{d.language}</span>
                   <div className="text-right">
-                    <div className="text-xs text-gray-500">Ставка {d.stake.toLocaleString("ru-RU")} ₽</div>
-                    <div className="text-lg font-semibold text-green-400">{(d.stake * 2 * 0.9).toLocaleString("ru-RU")} ₽</div>
+                    <div className="text-xs text-gray-500">Ставка {d.stake.toLocaleString("ru-RU")} DLC</div>
+                    <div className="text-lg font-semibold text-green-400">{(d.stake * 2 * 0.9).toLocaleString("ru-RU")} DLC</div>
                   </div>
                 </div>
               </div>
