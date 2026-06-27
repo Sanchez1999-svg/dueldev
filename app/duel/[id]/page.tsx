@@ -348,7 +348,7 @@ export default function DuelRoom() {
       <div className="min-h-screen bg-gray-950 text-white flex flex-col items-center justify-center gap-4 px-4">
         <div className="text-4xl mb-2">{iWon ? "🏆" : "💀"}</div>
         <h1 className="text-2xl font-semibold">{iWon ? "Ты выиграл!" : "Ты проиграл"}</h1>
-        {iWon && <p className="text-green-400">+{prize.toLocaleString("ru-RU")} ₽ на счёт</p>}
+        {iWon && <p className="text-green-400">+{prize.toLocaleString("ru-RU")} DLC на счёт</p>}
         <button onClick={() => router.push("/")} className="text-red-400 hover:text-red-300 mt-2">
           ← На главную
         </button>
@@ -451,7 +451,7 @@ export default function DuelRoom() {
           <aside className="space-y-4">
             <div>
               <h1 className="text-xl font-semibold">Дуэль в процессе</h1>
-              <div className="text-sm text-gray-500">{duel.language} • Ставка {duel.stake.toLocaleString("ru-RU")} ₽</div>
+              <div className="text-sm text-gray-500">{duel.language} • Ставка {duel.stake.toLocaleString("ru-RU")} DLC</div>
             </div>
 
             <div className="bg-gray-900 border border-gray-800 rounded-xl p-4">
