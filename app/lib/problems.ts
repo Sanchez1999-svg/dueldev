@@ -45,6 +45,18 @@ export function getProblem(id: string): Problem | null {
   return PROBLEMS[id] ?? null;
 }
 
+// Public list for the create-duel picker: id + title + short statement, no
+// hidden test data.
+export function listProblemsPublic() {
+  return Object.values(PROBLEMS).map(p => ({
+    id: p.id,
+    title: p.title,
+    statement: p.statement,
+    ioSpec: p.ioSpec,
+    totalTests: p.tests.length,
+  }));
+}
+
 // Public-safe view of a problem: statement, io spec, and ONLY sample tests
 // (hidden tests' expected outputs are stripped).
 export function getProblemPublic(id: string) {
