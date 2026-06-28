@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
-import { mapLanguage, runCode } from "../../../lib/judge0";
+import { mapLanguage, runBatch } from "../../../lib/judge0";
 import { getProblem } from "../../../lib/problems";
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
@@ -57,15 +57,17 @@ export async function POST(req: NextRequest) {
   const problem = getProblem(duel.problem_id);
   if (!problem) return NextResponse.json({ error: "unknown problem" }, { status: 400 });
 
-  // Run every test case.
+  // Run every test case in a single batch (one Judge0 request set, not one
+  // per test).
   let passed = 0;
-  for (const test of problem.tests) {
-    try {
-      const out = await runCode({ code, languageId, stdin: test.stdin });
-      if (out.status === "Accepted" && normalize(out.stdout) === normalize(test.expected)) passed++;
-    } catch {
-      // a failed run counts as a failed test
-    }
+  try {
+    const outs = await runBatch(problem.tests.map(t => ({ code, languageId, stdin: t.stdin })));
+    problem.tests.forEach((test, i) => {
+      const out = outs[i];
+      if (out && out.status === "Accepted" && normalize(out.stdout) === normalize(test.expected)) passed++;
+    });
+  } catch (e) {
+    return NextResponse.json({ error: e instanceof Error ? e.message : "judging failed" }, { status: 502 });
   }
   const total = problem.tests.length;
 

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
-import { mapLanguage, runCode } from "../../lib/judge0";
+import { mapLanguage, runBatch } from "../../lib/judge0";
 import { getProblem } from "../../lib/problems";
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
@@ -39,29 +39,30 @@ export async function POST(req: NextRequest) {
   const problem = typeof problemId === "string" ? getProblem(problemId) : null;
   if (!problem) return NextResponse.json({ error: "unknown problem" }, { status: 400 });
 
-  const results = [];
+  const results: Record<string, unknown>[] = [];
   let passed = 0;
 
-  for (const test of problem.tests) {
-    try {
-      const out = await runCode({ code, languageId, stdin: test.stdin });
-      const got = normalize(out.stdout);
-      const want = normalize(test.expected);
-      const ok = out.status === "Accepted" && got === want;
-      if (ok) passed++;
-      results.push({
-        sample: test.sample,
-        passed: ok,
-        status: out.status,
-        // Reveal details only for sample tests; hidden tests stay opaque.
-        ...(test.sample
-          ? { stdin: test.stdin, expected: test.expected, got: out.stdout, stderr: out.stderr, compileOutput: out.compileOutput }
-          : {}),
-      });
-    } catch (e) {
-      results.push({ sample: test.sample, passed: false, status: "error", error: e instanceof Error ? e.message : "run failed" });
-    }
+  let outs;
+  try {
+    outs = await runBatch(problem.tests.map(t => ({ code, languageId, stdin: t.stdin })));
+  } catch (e) {
+    return NextResponse.json({ error: e instanceof Error ? e.message : "judging failed" }, { status: 502 });
   }
+
+  problem.tests.forEach((test, i) => {
+    const out = outs[i];
+    const ok = !!out && out.status === "Accepted" && normalize(out.stdout) === normalize(test.expected);
+    if (ok) passed++;
+    results.push({
+      sample: test.sample,
+      passed: ok,
+      status: out?.status ?? "error",
+      // Reveal details only for sample tests; hidden tests stay opaque.
+      ...(test.sample
+        ? { stdin: test.stdin, expected: test.expected, got: out?.stdout ?? null, stderr: out?.stderr ?? null, compileOutput: out?.compileOutput ?? null }
+        : {}),
+    });
+  });
 
   return NextResponse.json({
     problemId: problem.id,
