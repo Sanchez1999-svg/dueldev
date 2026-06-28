@@ -18,6 +18,7 @@ type Duel = {
   creator_id: string;
   opponent_id: string | null;
   winner_id: string | null;
+  problem_id: string | null;
 };
 
 type Solution = {
@@ -66,6 +67,8 @@ export default function DuelRoom() {
   const [chatDraft, setChatDraft] = useState("");
   const [sendingChat, setSendingChat] = useState(false);
   const chatScrollRef = useRef<HTMLDivElement>(null);
+  const [rankedResult, setRankedResult] = useState<{ passed: number; total: number; allPassed: boolean } | null>(null);
+  const [problemInfo, setProblemInfo] = useState<{ ioSpec: string; totalTests: number } | null>(null);
 
   useEffect(() => {
     init();
@@ -112,6 +115,18 @@ export default function DuelRoom() {
   useEffect(() => {
     if (duel && duel.language !== "Любой") setRunLanguage(duel.language);
   }, [duel?.language]);
+
+  // For ranked duels, fetch the public problem details (io spec) to show.
+  useEffect(() => {
+    if (!duel?.problem_id) return;
+    fetch("/api/problems")
+      .then(r => r.json())
+      .then(d => {
+        const p = (d.problems || []).find((x: { id: string }) => x.id === duel.problem_id);
+        if (p) setProblemInfo({ ioSpec: p.ioSpec, totalTests: p.totalTests });
+      })
+      .catch(() => {});
+  }, [duel?.problem_id]);
 
   useEffect(() => {
     chatScrollRef.current?.scrollTo({ top: chatScrollRef.current.scrollHeight });
@@ -240,7 +255,7 @@ export default function DuelRoom() {
   }
 
   async function handleSubmit() {
-    if (!code.trim() || !userId) return;
+    if (!code.trim() || !userId || !duel) return;
     if (code.length > CODE_MAX_LENGTH) {
       setErrorMsg(`Решение слишком длинное (максимум ${CODE_MAX_LENGTH} символов)`);
       return;
@@ -248,6 +263,31 @@ export default function DuelRoom() {
     setSubmitting(true);
     setErrorMsg("");
 
+    if (duel.problem_id) {
+      // Ranked: the server judges against hidden tests and records the score.
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) { setErrorMsg("Сессия истекла, перезайди"); setSubmitting(false); return; }
+      try {
+        const res = await fetch("/api/duel/submit", {
+          method: "POST",
+          headers: { "content-type": "application/json", authorization: `Bearer ${session.access_token}` },
+          body: JSON.stringify({ duelId, code, language: runLanguage }),
+        });
+        const data = await res.json();
+        if (!res.ok) {
+          setErrorMsg(data.error === "already submitted" ? "Ты уже отправил решение" : (data.error || "Ошибка отправки"));
+        } else {
+          setRankedResult({ passed: data.passed, total: data.total, allPassed: data.allPassed });
+          await refreshData();
+        }
+      } catch {
+        setErrorMsg("Не удалось связаться с сервером");
+      }
+      setSubmitting(false);
+      return;
+    }
+
+    // Custom (voting) duel: insert the solution directly.
     const { error } = await supabase.from("solutions").insert({
       duel_id: duelId,
       user_id: userId,
@@ -339,6 +379,7 @@ export default function DuelRoom() {
 
   const isTimeUp = timeLeft !== null && timeLeft <= 0;
   const bothSubmitted = !!mySolution && !!opponentSolution;
+  const isRanked = !!duel.problem_id;
   const prize = Math.round(duel.stake * 2 * 0.9);
 
   // Экран завершённой дуэли
@@ -372,8 +413,9 @@ export default function DuelRoom() {
     );
   }
 
-  // Экран голосования (оба отправили решения)
-  if (bothSubmitted) {
+  // Экран голосования (оба отправили решения) — только для кастомных дуэлей.
+  // Рейтинговые финализируются автоматически на сервере по очкам.
+  if (bothSubmitted && !isRanked) {
     return (
       <div className="min-h-screen bg-gray-950 text-white">
         <div className="max-w-5xl mx-auto px-6 py-6">
@@ -451,15 +493,29 @@ export default function DuelRoom() {
           <aside className="space-y-4">
             <div>
               <h1 className="text-xl font-semibold">Дуэль в процессе</h1>
-              <div className="text-sm text-gray-500">{duel.language} • Ставка {duel.stake.toLocaleString("ru-RU")} DLC</div>
+              <div className="text-sm text-gray-500">
+                {isRanked ? "🏆 Рейтинг" : duel.language} • Ставка {duel.stake.toLocaleString("ru-RU")} DLC
+              </div>
             </div>
 
             <div className="bg-gray-900 border border-gray-800 rounded-xl p-4">
               <div className="text-xs text-gray-500 mb-1">Задача</div>
-              <p className="text-gray-200 text-sm">{duel.task}</p>
+              <p className="text-gray-200 text-sm whitespace-pre-wrap">{duel.task}</p>
+              {isRanked && problemInfo && (
+                <div className="mt-3 pt-3 border-t border-gray-800">
+                  <div className="text-xs text-gray-500 mb-1">Формат ввода/вывода</div>
+                  <pre className="text-gray-300 text-xs whitespace-pre-wrap font-sans">{problemInfo.ioSpec}</pre>
+                  <div className="text-xs text-gray-600 mt-2">Решение проверяется на {problemInfo.totalTests} тестах</div>
+                </div>
+              )}
             </div>
 
-            {isTimeUp && !mySolution ? (
+            {isRanked && rankedResult ? (
+              <div className={`border rounded-xl p-4 text-center text-sm ${rankedResult.allPassed ? "bg-green-900/30 border-green-800 text-green-400" : "bg-yellow-900/30 border-yellow-800 text-yellow-400"}`}>
+                Пройдено тестов: <span className="font-bold">{rankedResult.passed}/{rankedResult.total}</span>
+                <div className="text-xs text-gray-400 mt-1">Жди соперника — победитель определится автоматически по очкам.</div>
+              </div>
+            ) : isTimeUp && !mySolution ? (
               <div className="bg-red-900/30 border border-red-800 rounded-xl p-4 text-center text-red-400 text-sm">
                 Время истекло, и ты не отправил решение. Скорее всего засчитают поражение.
               </div>
@@ -494,7 +550,7 @@ export default function DuelRoom() {
                 disabled={submitting || !code.trim()}
                 className="w-full bg-red-600 hover:bg-red-700 disabled:opacity-50 text-white font-medium py-3 rounded-xl transition-colors"
               >
-                {submitting ? "Отправка..." : "Отправить решение"}
+                {submitting ? (isRanked ? "Проверка..." : "Отправка...") : (isRanked ? "Отправить на проверку" : "Отправить решение")}
               </button>
             )}
 

@@ -16,6 +16,7 @@ type Duel = {
   creator_id: string;
   opponent_id: string | null;
   winner_id: string | null;
+  problem_id: string | null;
 };
 
 const TASK_MAX_LENGTH = 2000;
@@ -102,6 +103,9 @@ export default function Home() {
   const [task, setTask] = useState(TASK_BANK["Алгоритмы"]["Легко"][0]);
   const [language, setLanguage] = useState("Любой");
   const [duration, setDuration] = useState(60);
+  const [mode, setMode] = useState<"ranked" | "custom">("ranked");
+  const [problems, setProblems] = useState<{ id: string; title: string; statement: string }[]>([]);
+  const [problemId, setProblemId] = useState<string>("");
   const [loading, setLoading] = useState(true);
   const [publishing, setPublishing] = useState(false);
   const [accepting, setAccepting] = useState(false);
@@ -156,6 +160,17 @@ export default function Home() {
     const t = setTimeout(() => setAcceptedNotice(null), 6000);
     return () => clearTimeout(t);
   }, [acceptedNotice]);
+
+  useEffect(() => {
+    fetch("/api/problems")
+      .then(r => r.json())
+      .then(d => {
+        const list = d.problems || [];
+        setProblems(list);
+        if (list[0]) setProblemId(list[0].id);
+      })
+      .catch(() => {});
+  }, []);
 
   async function checkUser() {
     const { data: { session } } = await supabase.auth.getSession();
@@ -229,13 +244,23 @@ export default function Home() {
   }
 
   async function handlePublish() {
-    if (!task.trim()) {
-      setErrorMsg("Опиши задачу для дуэли");
-      return;
-    }
-    if (task.length > TASK_MAX_LENGTH) {
-      setErrorMsg(`Задача слишком длинная (максимум ${TASK_MAX_LENGTH} символов)`);
-      return;
+    const ranked = mode === "ranked";
+    const chosenProblem = ranked ? problems.find(p => p.id === problemId) : null;
+
+    if (ranked) {
+      if (!chosenProblem) {
+        setErrorMsg("Выбери задачу для рейтинговой дуэли");
+        return;
+      }
+    } else {
+      if (!task.trim()) {
+        setErrorMsg("Опиши задачу для дуэли");
+        return;
+      }
+      if (task.length > TASK_MAX_LENGTH) {
+        setErrorMsg(`Задача слишком длинная (максимум ${TASK_MAX_LENGTH} символов)`);
+        return;
+      }
     }
     if (!profile || profile.balance < stake) {
       setErrorMsg("Недостаточно средств на балансе");
@@ -247,11 +272,12 @@ export default function Home() {
 
     const { error: duelError } = await supabase.from("duels").insert({
       creator_id: userId,
-      task,
-      language,
+      task: ranked ? chosenProblem!.statement : task,
+      language: ranked ? "Любой" : language,
       duration_minutes: duration,
       stake,
       status: "open",
+      problem_id: ranked ? chosenProblem!.id : null,
     });
 
     if (duelError) {
@@ -516,6 +542,48 @@ export default function Home() {
 
           <div className="space-y-5">
             <div>
+              <label className="block text-sm text-gray-400 mb-2">Режим</label>
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  onClick={() => setMode("ranked")}
+                  className={`text-sm py-2 rounded-xl border transition-colors ${mode === "ranked" ? "bg-red-600 border-red-600 text-white" : "bg-gray-900 border-gray-800 text-gray-400 hover:border-gray-700"}`}
+                >
+                  🏆 Рейтинг (автопроверка)
+                </button>
+                <button
+                  onClick={() => setMode("custom")}
+                  className={`text-sm py-2 rounded-xl border transition-colors ${mode === "custom" ? "bg-red-600 border-red-600 text-white" : "bg-gray-900 border-gray-800 text-gray-400 hover:border-gray-700"}`}
+                >
+                  ✍️ Кастом (голосование)
+                </button>
+              </div>
+              <p className="text-xs text-gray-600 mt-2">
+                {mode === "ranked"
+                  ? "Победитель определяется автоматически по числу пройденных тестов."
+                  : "Свободная задача; победителя выбираете голосованием вы оба."}
+              </p>
+            </div>
+
+            {mode === "ranked" && (
+              <div>
+                <label className="block text-sm text-gray-400 mb-2">Задача</label>
+                <select
+                  value={problemId}
+                  onChange={e => setProblemId(e.target.value)}
+                  className="w-full bg-gray-900 border border-gray-800 rounded-xl p-3 text-white focus:outline-none focus:border-gray-600"
+                >
+                  {problems.map(p => (
+                    <option key={p.id} value={p.id}>{p.title}</option>
+                  ))}
+                </select>
+                {problems.find(p => p.id === problemId) && (
+                  <p className="text-xs text-gray-500 mt-2">{problems.find(p => p.id === problemId)!.statement}</p>
+                )}
+              </div>
+            )}
+
+            {mode === "custom" && (<>
+            <div>
               <label className="block text-sm text-gray-400 mb-2">Категория</label>
               <div className="grid grid-cols-3 gap-2">
                 {Object.keys(TASK_BANK).map(cat => (
@@ -602,6 +670,7 @@ export default function Home() {
                 <option>C++</option>
               </select>
             </div>
+            </>)}
 
             <div>
               <label className="block text-sm text-gray-400 mb-2">Время на решение</label>
@@ -817,7 +886,9 @@ export default function Home() {
                 </div>
                 <p className="text-sm text-gray-300 mb-3">{d.task}</p>
                 <div className="flex items-center justify-between">
-                  <span className="text-xs bg-blue-900/40 text-blue-400 px-2 py-1 rounded-full">{d.language}</span>
+                  <span className={`text-xs px-2 py-1 rounded-full ${d.problem_id ? "bg-yellow-900/40 text-yellow-400" : "bg-blue-900/40 text-blue-400"}`}>
+                    {d.problem_id ? "🏆 Рейтинг" : d.language}
+                  </span>
                   <div className="text-right">
                     <div className="text-xs text-gray-500">Ставка {d.stake.toLocaleString("ru-RU")} DLC</div>
                     <div className="text-lg font-semibold text-green-400">{(d.stake * 2 * 0.9).toLocaleString("ru-RU")} DLC</div>
