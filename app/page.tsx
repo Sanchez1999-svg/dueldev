@@ -17,9 +17,12 @@ type Duel = {
   opponent_id: string | null;
   winner_id: string | null;
   problem_id: string | null;
+  stake_type: "dlc" | "item";
+  item_description: string | null;
 };
 
 const TASK_MAX_LENGTH = 2000;
+const ITEM_DESC_MAX_LENGTH = 300;
 
 const TASK_BANK: Record<string, Record<string, string[]>> = {
   "Алгоритмы": {
@@ -104,6 +107,8 @@ export default function Home() {
   const [language, setLanguage] = useState("Любой");
   const [duration, setDuration] = useState(60);
   const [mode, setMode] = useState<"ranked" | "custom">("ranked");
+  const [stakeType, setStakeType] = useState<"dlc" | "item">("dlc");
+  const [itemDescription, setItemDescription] = useState("");
   const [problems, setProblems] = useState<{ id: string; title: string; statement: string; ioSpec: string }[]>([]);
   const [problemId, setProblemId] = useState<string>("");
   const [solveCode, setSolveCode] = useState("");
@@ -251,14 +256,25 @@ export default function Home() {
     setTask(TASK_BANK[category][difficulty][0]);
     setStake(1000);
     setSolveCode("");
+    setStakeType("dlc");
+    setItemDescription("");
   }
 
   async function handlePublish() {
     const ranked = mode === "ranked";
+    const itemStake = !ranked && stakeType === "item";
 
-    if (!profile || profile.balance < stake) {
+    if (!profile) { setErrorMsg("Профиль не загружен"); return; }
+    if (!itemStake && profile.balance < stake) {
       setErrorMsg("Недостаточно средств на балансе");
       return;
+    }
+    if (itemStake) {
+      if (!itemDescription.trim()) { setErrorMsg("Опиши, что ставишь на спор"); return; }
+      if (itemDescription.length > ITEM_DESC_MAX_LENGTH) {
+        setErrorMsg(`Описание предмета слишком длинное (максимум ${ITEM_DESC_MAX_LENGTH} символов)`);
+        return;
+      }
     }
 
     if (ranked) {
@@ -315,9 +331,11 @@ export default function Home() {
       task,
       language,
       duration_minutes: duration,
-      stake,
+      stake: itemStake ? 0 : stake,
       status: "open",
       problem_id: null,
+      stake_type: itemStake ? "item" : "dlc",
+      item_description: itemStake ? itemDescription.trim() : null,
     });
 
     if (duelError) {
@@ -326,9 +344,11 @@ export default function Home() {
       return;
     }
 
-    const newBalance = profile.balance - stake;
-    await supabase.from("profiles").update({ balance: newBalance }).eq("id", userId);
-    setProfile({ ...profile, balance: newBalance });
+    if (!itemStake) {
+      const newBalance = profile.balance - stake;
+      await supabase.from("profiles").update({ balance: newBalance }).eq("id", userId);
+      setProfile({ ...profile, balance: newBalance });
+    }
 
     await loadDuels();
     setPublishing(false);
@@ -476,14 +496,23 @@ export default function Home() {
             </div>
 
             <div className="border-t border-gray-800 pt-3 space-y-2">
-              <div className="flex justify-between text-sm">
-                <span className="text-gray-400">Ставка каждого</span>
-                <span>{selectedDuel.stake.toLocaleString("ru-RU")} DLC</span>
-              </div>
-              <div className="flex justify-between font-semibold">
-                <span>Победитель получит</span>
-                <span className="text-green-400">{duelPrize.toLocaleString("ru-RU")} DLC</span>
-              </div>
+              {selectedDuel.stake_type === "item" ? (
+                <div className="flex justify-between text-sm">
+                  <span className="text-gray-400">На кону</span>
+                  <span className="text-right">{selectedDuel.item_description}</span>
+                </div>
+              ) : (
+                <>
+                  <div className="flex justify-between text-sm">
+                    <span className="text-gray-400">Ставка каждого</span>
+                    <span>{selectedDuel.stake.toLocaleString("ru-RU")} DLC</span>
+                  </div>
+                  <div className="flex justify-between font-semibold">
+                    <span>Победитель получит</span>
+                    <span className="text-green-400">{duelPrize.toLocaleString("ru-RU")} DLC</span>
+                  </div>
+                </>
+              )}
             </div>
           </div>
 
@@ -528,7 +557,7 @@ export default function Home() {
                     disabled={cancelling}
                     className="w-full bg-gray-800 hover:bg-gray-700 disabled:opacity-50 text-white font-medium py-3 rounded-xl transition-colors"
                   >
-                    {cancelling ? "Отмена..." : `Отменить вызов и вернуть ${selectedDuel.stake.toLocaleString("ru-RU")} DLC`}
+                    {cancelling ? "Отмена..." : selectedDuel.stake_type === "item" ? "Отменить вызов" : `Отменить вызов и вернуть ${selectedDuel.stake.toLocaleString("ru-RU")} DLC`}
                   </button>
                 </div>
               )}
@@ -573,7 +602,7 @@ export default function Home() {
                 disabled={accepting}
                 className="w-full bg-red-600 hover:bg-red-700 disabled:opacity-50 text-white font-medium py-3 rounded-xl transition-colors"
               >
-                {accepting ? "Принятие вызова..." : `Принять вызов — ${selectedDuel.stake.toLocaleString("ru-RU")} DLC`}
+                {accepting ? "Принятие вызова..." : selectedDuel.stake_type === "item" ? "Принять вызов" : `Принять вызов — ${selectedDuel.stake.toLocaleString("ru-RU")} DLC`}
               </button>
             </>
           )}
@@ -752,6 +781,47 @@ export default function Home() {
                 <option>C++</option>
               </select>
             </div>
+
+            <div>
+              <label className="block text-sm text-gray-400 mb-2">На кону</label>
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  onClick={() => setStakeType("dlc")}
+                  className={`text-sm py-2 rounded-xl border transition-colors ${stakeType === "dlc" ? "bg-red-600 border-red-600 text-white" : "bg-gray-900 border-gray-800 text-gray-400 hover:border-gray-700"}`}
+                >
+                  💰 DLC
+                </button>
+                <button
+                  onClick={() => setStakeType("item")}
+                  className={`text-sm py-2 rounded-xl border transition-colors ${stakeType === "item" ? "bg-red-600 border-red-600 text-white" : "bg-gray-900 border-gray-800 text-gray-400 hover:border-gray-700"}`}
+                >
+                  📦 Предмет
+                </button>
+              </div>
+              <p className="text-xs text-gray-600 mt-2">
+                {stakeType === "item"
+                  ? "Договоритесь о предмете сами — сайт только фиксирует условия и определяет победителя."
+                  : "Ставка списывается с баланса при создании, победитель забирает банк."}
+              </p>
+            </div>
+
+            {stakeType === "item" && (
+              <div>
+                <label className="block text-sm text-gray-400 mb-2 flex items-center justify-between">
+                  <span>Что на кону</span>
+                  <span className={itemDescription.length > ITEM_DESC_MAX_LENGTH ? "text-red-400" : "text-gray-600"}>
+                    {itemDescription.length}/{ITEM_DESC_MAX_LENGTH}
+                  </span>
+                </label>
+                <textarea
+                  value={itemDescription}
+                  onChange={e => setItemDescription(e.target.value)}
+                  maxLength={ITEM_DESC_MAX_LENGTH}
+                  className="w-full bg-gray-900 border border-gray-800 rounded-xl p-3 text-white placeholder-gray-600 resize-none h-20 focus:outline-none focus:border-gray-600"
+                  placeholder="Например: проигравший делает домашку победителю на этой неделе"
+                />
+              </div>
+            )}
             </>)}
 
             <div>
@@ -768,6 +838,7 @@ export default function Home() {
               </select>
             </div>
 
+            {!(mode === "custom" && stakeType === "item") && (<>
             <div>
               <label className="block text-sm text-gray-400 mb-2">
                 Ставка: <span className="text-white font-medium">{stake.toLocaleString("ru-RU")} DLC</span>
@@ -800,6 +871,14 @@ export default function Home() {
                 <span className="text-green-400">{prize.toLocaleString("ru-RU")} DLC</span>
               </div>
             </div>
+            </>)}
+
+            {mode === "custom" && stakeType === "item" && (
+              <div className="bg-gray-900 rounded-xl p-4 border border-gray-800 text-sm">
+                <span className="text-gray-400">На кону: </span>
+                <span className="text-white">{itemDescription.trim() || "не указано"}</span>
+              </div>
+            )}
 
             {errorMsg && (
               <div className="text-sm px-4 py-3 rounded-xl bg-red-900/50 text-red-400">
@@ -814,6 +893,8 @@ export default function Home() {
             >
               {publishing
                 ? (mode === "ranked" ? "Проверка решения..." : "Публикация...")
+                : mode === "custom" && stakeType === "item"
+                ? "Опубликовать вызов"
                 : (mode === "ranked" ? `Решить и бросить вызов — ${stake.toLocaleString("ru-RU")} DLC` : `Опубликовать вызов — ${stake.toLocaleString("ru-RU")} DLC`)}
             </button>
           </div>
@@ -935,9 +1016,13 @@ export default function Home() {
                   <p className="text-sm text-gray-300 mb-3">{d.task}</p>
                   <div className="flex items-center justify-between">
                     <span className="text-xs bg-blue-900/40 text-blue-400 px-2 py-1 rounded-full">{d.language}</span>
-                    <div className={`text-lg font-semibold ${amount > 0 ? "text-green-400" : amount < 0 ? "text-red-400" : "text-gray-400"}`}>
-                      {amount > 0 ? "+" : ""}{amount.toLocaleString("ru-RU")} DLC
-                    </div>
+                    {d.stake_type === "item" ? (
+                      <div className="text-sm text-gray-400 text-right max-w-[55%] truncate" title={d.item_description || ""}>📦 {d.item_description}</div>
+                    ) : (
+                      <div className={`text-lg font-semibold ${amount > 0 ? "text-green-400" : amount < 0 ? "text-red-400" : "text-gray-400"}`}>
+                        {amount > 0 ? "+" : ""}{amount.toLocaleString("ru-RU")} DLC
+                      </div>
+                    )}
                   </div>
                 </div>
               );
@@ -973,10 +1058,17 @@ export default function Home() {
                   <span className={`text-xs px-2 py-1 rounded-full ${d.problem_id ? "bg-yellow-900/40 text-yellow-400" : "bg-blue-900/40 text-blue-400"}`}>
                     {d.problem_id ? "🏆 Рейтинг" : d.language}
                   </span>
-                  <div className="text-right">
-                    <div className="text-xs text-gray-500">Ставка {d.stake.toLocaleString("ru-RU")} DLC</div>
-                    <div className="text-lg font-semibold text-green-400">{(d.stake * 2 * 0.9).toLocaleString("ru-RU")} DLC</div>
-                  </div>
+                  {d.stake_type === "item" ? (
+                    <div className="text-right max-w-[55%]">
+                      <div className="text-xs text-gray-500">На кону</div>
+                      <div className="text-sm font-medium text-white truncate" title={d.item_description || ""}>📦 {d.item_description}</div>
+                    </div>
+                  ) : (
+                    <div className="text-right">
+                      <div className="text-xs text-gray-500">Ставка {d.stake.toLocaleString("ru-RU")} DLC</div>
+                      <div className="text-lg font-semibold text-green-400">{(d.stake * 2 * 0.9).toLocaleString("ru-RU")} DLC</div>
+                    </div>
+                  )}
                 </div>
               </div>
             );
