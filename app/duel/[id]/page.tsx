@@ -19,6 +19,8 @@ type Duel = {
   opponent_id: string | null;
   winner_id: string | null;
   problem_id: string | null;
+  stake_type: "dlc" | "item";
+  item_description: string | null;
 };
 
 type Solution = {
@@ -398,8 +400,14 @@ export default function DuelRoom() {
             </div>
             <p className="text-gray-200 text-sm whitespace-pre-wrap">{duel.task}</p>
             <div className="border-t border-gray-800 pt-3 space-y-2 text-sm">
-              <div className="flex justify-between"><span className="text-gray-400">Ставка</span><span>{duel.stake.toLocaleString("ru-RU")} DLC</span></div>
-              <div className="flex justify-between font-semibold"><span>Победитель получит</span><span className="text-green-400">{prize.toLocaleString("ru-RU")} DLC</span></div>
+              {duel.stake_type === "item" ? (
+                <div className="flex justify-between"><span className="text-gray-400">На кону</span><span className="text-right">{duel.item_description}</span></div>
+              ) : (
+                <>
+                  <div className="flex justify-between"><span className="text-gray-400">Ставка</span><span>{duel.stake.toLocaleString("ru-RU")} DLC</span></div>
+                  <div className="flex justify-between font-semibold"><span>Победитель получит</span><span className="text-green-400">{prize.toLocaleString("ru-RU")} DLC</span></div>
+                </>
+              )}
             </div>
             {duel.problem_id && (
               <p className="text-xs text-gray-500">Соперник уже решил задачу. Прими вызов и постарайся пройти больше тестов.</p>
@@ -410,7 +418,7 @@ export default function DuelRoom() {
               disabled={accepting}
               className="w-full bg-red-600 hover:bg-red-700 disabled:opacity-50 text-white font-medium py-3 rounded-xl transition-colors"
             >
-              {accepting ? "Принятие..." : `Принять вызов — ${duel.stake.toLocaleString("ru-RU")} DLC`}
+              {accepting ? "Принятие..." : duel.stake_type === "item" ? "Принять вызов" : `Принять вызов — ${duel.stake.toLocaleString("ru-RU")} DLC`}
             </button>
             <button onClick={() => router.push("/")} className="w-full text-gray-500 hover:text-gray-300 text-sm">
               ← На главную
@@ -444,7 +452,11 @@ export default function DuelRoom() {
       <div className="min-h-screen bg-gray-950 text-white flex flex-col items-center justify-center gap-4 px-4">
         <div className="text-4xl mb-2">{iWon ? "🏆" : "💀"}</div>
         <h1 className="text-2xl font-semibold">{iWon ? "Ты выиграл!" : "Ты проиграл"}</h1>
-        {iWon && <p className="text-green-400">+{prize.toLocaleString("ru-RU")} DLC на счёт</p>}
+        {duel.stake_type === "item" ? (
+          <p className="text-gray-400 text-center max-w-sm">{iWon ? `Забери: ${duel.item_description}` : `Отдай сопернику: ${duel.item_description}`}</p>
+        ) : (
+          iWon && <p className="text-green-400">+{prize.toLocaleString("ru-RU")} DLC на счёт</p>
+        )}
         <button onClick={() => router.push("/")} className="text-red-400 hover:text-red-300 mt-2">
           ← На главную
         </button>
@@ -549,7 +561,7 @@ export default function DuelRoom() {
             <div>
               <h1 className="text-xl font-semibold">Дуэль в процессе</h1>
               <div className="text-sm text-gray-500">
-                {isRanked ? "🏆 Рейтинг" : duel.language} • Ставка {duel.stake.toLocaleString("ru-RU")} DLC
+                {isRanked ? "🏆 Рейтинг" : duel.language} • {duel.stake_type === "item" ? `На кону: ${duel.item_description}` : `Ставка ${duel.stake.toLocaleString("ru-RU")} DLC`}
               </div>
             </div>
 
