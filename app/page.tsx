@@ -650,7 +650,14 @@ export default function Home() {
                 <label className="block text-sm text-gray-400 mb-2">Задача</label>
                 <select
                   value={problemId}
-                  onChange={e => setProblemId(e.target.value)}
+                  onChange={e => {
+                    // The code in the editor is a solution to the PREVIOUS
+                    // problem; keeping it around looks like a ready answer
+                    // for the new one but would just fail every test.
+                    setProblemId(e.target.value);
+                    setSolveCode("");
+                    setErrorMsg("");
+                  }}
                   className="w-full bg-gray-900 border border-gray-800 rounded-xl p-3 text-white focus:outline-none focus:border-gray-600"
                 >
                   {problems.map(p => (
