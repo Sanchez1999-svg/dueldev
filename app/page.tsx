@@ -104,8 +104,10 @@ export default function Home() {
   const [language, setLanguage] = useState("Любой");
   const [duration, setDuration] = useState(60);
   const [mode, setMode] = useState<"ranked" | "custom">("ranked");
-  const [problems, setProblems] = useState<{ id: string; title: string; statement: string }[]>([]);
+  const [problems, setProblems] = useState<{ id: string; title: string; statement: string; ioSpec: string }[]>([]);
   const [problemId, setProblemId] = useState<string>("");
+  const [solveCode, setSolveCode] = useState("");
+  const [solveLang, setSolveLang] = useState("Python");
   const [loading, setLoading] = useState(true);
   const [publishing, setPublishing] = useState(false);
   const [accepting, setAccepting] = useState(false);
@@ -243,27 +245,64 @@ export default function Home() {
     router.push("/auth");
   }
 
+  function resetCreateForm() {
+    setShowCreate(false);
+    setTask(TASK_BANK[category][difficulty][0]);
+    setStake(1000);
+    setSolveCode("");
+  }
+
   async function handlePublish() {
     const ranked = mode === "ranked";
-    const chosenProblem = ranked ? problems.find(p => p.id === problemId) : null;
 
-    if (ranked) {
-      if (!chosenProblem) {
-        setErrorMsg("Выбери задачу для рейтинговой дуэли");
-        return;
-      }
-    } else {
-      if (!task.trim()) {
-        setErrorMsg("Опиши задачу для дуэли");
-        return;
-      }
-      if (task.length > TASK_MAX_LENGTH) {
-        setErrorMsg(`Задача слишком длинная (максимум ${TASK_MAX_LENGTH} символов)`);
-        return;
-      }
-    }
     if (!profile || profile.balance < stake) {
       setErrorMsg("Недостаточно средств на балансе");
+      return;
+    }
+
+    if (ranked) {
+      // Async ranked challenge: the creator solves it now; the server judges
+      // and publishes the open challenge with the locked-in score.
+      const chosenProblem = problems.find(p => p.id === problemId);
+      if (!chosenProblem) { setErrorMsg("Выбери задачу для рейтинговой дуэли"); return; }
+      if (!solveCode.trim()) { setErrorMsg("Напиши решение задачи, чтобы бросить вызов"); return; }
+
+      setPublishing(true);
+      setErrorMsg("");
+
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) { setErrorMsg("Сессия истекла, перезайди"); setPublishing(false); return; }
+
+      try {
+        const res = await fetch("/api/duel/create-ranked", {
+          method: "POST",
+          headers: { "content-type": "application/json", authorization: `Bearer ${session.access_token}` },
+          body: JSON.stringify({ problemId, code: solveCode, language: solveLang, stake, durationMinutes: duration }),
+        });
+        const data = await res.json();
+        if (!res.ok) {
+          setErrorMsg(data.error || "Не удалось создать вызов");
+          setPublishing(false);
+          return;
+        }
+        await refreshProfile();
+        await loadDuels();
+        setPublishing(false);
+        resetCreateForm();
+      } catch {
+        setErrorMsg("Не удалось связаться с сервером");
+        setPublishing(false);
+      }
+      return;
+    }
+
+    // Custom (voting) duel: free-text task, insert directly.
+    if (!task.trim()) {
+      setErrorMsg("Опиши задачу для дуэли");
+      return;
+    }
+    if (task.length > TASK_MAX_LENGTH) {
+      setErrorMsg(`Задача слишком длинная (максимум ${TASK_MAX_LENGTH} символов)`);
       return;
     }
 
@@ -272,12 +311,12 @@ export default function Home() {
 
     const { error: duelError } = await supabase.from("duels").insert({
       creator_id: userId,
-      task: ranked ? chosenProblem!.statement : task,
-      language: ranked ? "Любой" : language,
+      task,
+      language,
       duration_minutes: duration,
       stake,
       status: "open",
-      problem_id: ranked ? chosenProblem!.id : null,
+      problem_id: null,
     });
 
     if (duelError) {
@@ -292,9 +331,7 @@ export default function Home() {
 
     await loadDuels();
     setPublishing(false);
-    setShowCreate(false);
-    setTask(TASK_BANK[category][difficulty][0]);
-    setStake(1000);
+    resetCreateForm();
   }
 
   async function handleAccept(duel: Duel) {
@@ -577,8 +614,38 @@ export default function Home() {
                   ))}
                 </select>
                 {problems.find(p => p.id === problemId) && (
-                  <p className="text-xs text-gray-500 mt-2">{problems.find(p => p.id === problemId)!.statement}</p>
+                  <div className="mt-2 text-xs text-gray-500 space-y-1">
+                    <p>{problems.find(p => p.id === problemId)!.statement}</p>
+                    <pre className="whitespace-pre-wrap font-sans text-gray-600">{problems.find(p => p.id === problemId)!.ioSpec}</pre>
+                  </div>
                 )}
+              </div>
+            )}
+
+            {mode === "ranked" && (
+              <div>
+                <label className="block text-sm text-gray-400 mb-2 flex items-center justify-between">
+                  <span>Твоё решение (нужно решить, чтобы бросить вызов)</span>
+                  <select
+                    value={solveLang}
+                    onChange={e => setSolveLang(e.target.value)}
+                    className="bg-gray-800 border border-gray-700 rounded-lg px-2 py-1 text-xs text-white focus:outline-none"
+                  >
+                    <option>Python</option>
+                    <option>JavaScript</option>
+                    <option>Java</option>
+                    <option>C++</option>
+                  </select>
+                </label>
+                <textarea
+                  value={solveCode}
+                  onChange={e => setSolveCode(e.target.value)}
+                  maxLength={20000}
+                  spellCheck={false}
+                  className="w-full h-48 bg-black border border-gray-800 rounded-xl p-3 font-mono text-sm text-green-400 placeholder-gray-700 resize-none focus:outline-none focus:border-gray-600"
+                  placeholder={`# Реши задачу. Чтение из stdin, вывод в stdout.\n# Пример (Python):\nimport sys\nprint(sys.stdin.read())`}
+                />
+                <p className="text-xs text-gray-600 mt-1">Твой результат зафиксируется. Соперник должен будет его превзойти.</p>
               </div>
             )}
 
@@ -730,7 +797,9 @@ export default function Home() {
               disabled={publishing}
               className="w-full bg-red-600 hover:bg-red-700 disabled:opacity-50 text-white font-medium py-3 rounded-xl transition-colors"
             >
-              {publishing ? "Публикация..." : `Опубликовать вызов — ${stake.toLocaleString("ru-RU")} DLC`}
+              {publishing
+                ? (mode === "ranked" ? "Проверка решения..." : "Публикация...")
+                : (mode === "ranked" ? `Решить и бросить вызов — ${stake.toLocaleString("ru-RU")} DLC` : `Опубликовать вызов — ${stake.toLocaleString("ru-RU")} DLC`)}
             </button>
           </div>
         </div>
