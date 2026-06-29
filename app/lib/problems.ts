@@ -118,6 +118,63 @@ const PROBLEMS: Record<string, Problem> = {
       { stdin: "20", expected: "6765", sample: false },
     ],
   },
+
+  "count-words": {
+    id: "count-words",
+    title: "Количество слов",
+    statement: "Дана строка. Выведи количество слов в ней (слова разделены одним или несколькими пробелами).",
+    ioSpec: "Ввод: одна строка.\nВывод: одно целое число — количество слов.",
+    tests: [
+      { stdin: "hello world", expected: "2", sample: true },
+      { stdin: "one two three four", expected: "4", sample: true },
+      { stdin: "a", expected: "1", sample: false },
+      { stdin: "  spaced   out  text  ", expected: "3", sample: false },
+      { stdin: "single", expected: "1", sample: false },
+    ],
+  },
+
+  "gcd": {
+    id: "gcd",
+    title: "НОД двух чисел",
+    statement: "Даны два натуральных числа. Выведи их наибольший общий делитель.",
+    ioSpec: "Ввод: одна строка с двумя натуральными числами через пробел.\nВывод: одно целое число — НОД.",
+    tests: [
+      { stdin: "12 18", expected: "6", sample: true },
+      { stdin: "100 75", expected: "25", sample: true },
+      { stdin: "7 13", expected: "1", sample: false },
+      { stdin: "5 5", expected: "5", sample: false },
+      { stdin: "1 999", expected: "1", sample: false },
+    ],
+  },
+
+  "is-prime": {
+    id: "is-prime",
+    title: "Простое число",
+    statement: "Дано целое число n (n ≥ 1). Выведи yes, если n простое, иначе no.",
+    ioSpec: "Ввод: одно целое число n.\nВывод: yes или no.",
+    tests: [
+      { stdin: "7", expected: "yes", sample: true },
+      { stdin: "10", expected: "no", sample: true },
+      { stdin: "1", expected: "no", sample: false },
+      { stdin: "2", expected: "yes", sample: false },
+      { stdin: "97", expected: "yes", sample: false },
+      { stdin: "100", expected: "no", sample: false },
+    ],
+  },
+
+  "count-vowels": {
+    id: "count-vowels",
+    title: "Количество гласных",
+    statement: "Дана строка из латинских букв. Посчитай количество гласных букв (a, e, i, o, u) без учёта регистра.",
+    ioSpec: "Ввод: одна строка.\nВывод: одно целое число — количество гласных.",
+    tests: [
+      { stdin: "hello", expected: "2", sample: true },
+      { stdin: "aeiou", expected: "5", sample: true },
+      { stdin: "xyz", expected: "0", sample: false },
+      { stdin: "Programming", expected: "3", sample: false },
+      { stdin: "bbb", expected: "0", sample: false },
+    ],
+  },
 };
 
 export function getProblem(id: string): Problem | null {
