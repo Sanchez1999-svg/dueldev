@@ -928,7 +928,7 @@ export default function Home() {
             </button>
             <button
               onClick={() => setShowCreate(true)}
-              className="bg-red-600 hover:bg-red-700 text-white text-sm font-medium px-4 py-2 rounded-xl transition-colors"
+              className="bg-red-600 hover:bg-red-700 text-white text-base font-semibold px-7 py-3 rounded-xl transition-colors shadow-lg shadow-red-600/20"
             >
               + Бросить вызов
             </button>
@@ -986,7 +986,7 @@ export default function Home() {
         </div>
 
         {/* Duel cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 mb-6">
           {filtered.map(d => {
             const isMine = d.creator_id === userId;
 
@@ -1034,39 +1034,37 @@ export default function Home() {
               <div
                 key={d.id}
                 onClick={() => setSelectedDuel(d)}
-                className="bg-gray-900 border border-gray-800 rounded-xl p-4 hover:border-gray-700 transition-colors cursor-pointer"
+                className="bg-gray-900 border border-gray-800 rounded-lg p-3 hover:border-gray-700 transition-colors cursor-pointer"
               >
-                <div className="flex items-start justify-between mb-3">
-                  <div className="flex items-center gap-2">
-                    <div className="w-8 h-8 rounded-full bg-blue-900 flex items-center justify-center text-xs font-medium">{initials}</div>
-                    <div>
-                      <div className="text-sm font-medium">
+                <div className="flex items-start justify-between mb-2">
+                  <div className="flex items-center gap-1.5 min-w-0">
+                    <div className="w-6 h-6 shrink-0 rounded-full bg-blue-900 flex items-center justify-center text-[10px] font-medium">{initials}</div>
+                    <div className="min-w-0">
+                      <div className="text-xs font-medium truncate">
                         {creatorName} {isMine && <span className="text-gray-500">(ты)</span>}
-                        {unreadDuelIds[d.id] && (
-                          <span className="ml-2 inline-flex items-center gap-1 text-xs text-yellow-400">💬 новое</span>
-                        )}
+                        {unreadDuelIds[d.id] && <span className="ml-1 text-yellow-400">💬</span>}
                       </div>
-                      <div className="text-xs text-gray-500">{formatRelativeTime(d.created_at)}</div>
+                      <div className="text-[10px] text-gray-500">{formatRelativeTime(d.created_at)}</div>
                     </div>
                   </div>
-                  <span className={`text-xs px-2 py-1 rounded-full font-medium ${d.status === "live" ? "bg-red-900/50 text-red-400" : "bg-green-900/50 text-green-400"}`}>
+                  <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-medium shrink-0 ${d.status === "live" ? "bg-red-900/50 text-red-400" : "bg-green-900/50 text-green-400"}`}>
                     {d.status === "live" ? "● Live" : "Открыта"}
                   </span>
                 </div>
-                <p className="text-sm text-gray-300 mb-3">{d.task}</p>
-                <div className="flex items-center justify-between">
-                  <span className={`text-xs px-2 py-1 rounded-full ${d.problem_id ? "bg-yellow-900/40 text-yellow-400" : "bg-blue-900/40 text-blue-400"}`}>
+                <p className="text-xs text-gray-300 mb-2 line-clamp-2">{d.task}</p>
+                <div className="flex items-center justify-between gap-2">
+                  <span className={`text-[10px] px-1.5 py-0.5 rounded-full shrink-0 ${d.problem_id ? "bg-yellow-900/40 text-yellow-400" : "bg-blue-900/40 text-blue-400"}`}>
                     {d.problem_id ? "🏆 Рейтинг" : d.language}
                   </span>
                   {d.stake_type === "item" ? (
-                    <div className="text-right max-w-[55%]">
-                      <div className="text-xs text-gray-500">На кону</div>
-                      <div className="text-sm font-medium text-white truncate" title={d.item_description || ""}>📦 {d.item_description}</div>
+                    <div className="text-right min-w-0">
+                      <div className="text-[10px] text-gray-500">На кону</div>
+                      <div className="text-xs font-medium text-white truncate" title={d.item_description || ""}>📦 {d.item_description}</div>
                     </div>
                   ) : (
-                    <div className="text-right">
-                      <div className="text-xs text-gray-500">Ставка {d.stake.toLocaleString("ru-RU")} DLC</div>
-                      <div className="text-lg font-semibold text-green-400">{(d.stake * 2 * 0.9).toLocaleString("ru-RU")} DLC</div>
+                    <div className="text-right shrink-0">
+                      <div className="text-[10px] text-gray-500">{d.stake.toLocaleString("ru-RU")} DLC</div>
+                      <div className="text-sm font-semibold text-green-400">{(d.stake * 2 * 0.9).toLocaleString("ru-RU")} DLC</div>
                     </div>
                   )}
                 </div>
