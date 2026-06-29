@@ -69,6 +69,7 @@ export default function DuelRoom() {
   const chatScrollRef = useRef<HTMLDivElement>(null);
   const [rankedResult, setRankedResult] = useState<{ passed: number; total: number; allPassed: boolean } | null>(null);
   const [problemInfo, setProblemInfo] = useState<{ ioSpec: string; totalTests: number } | null>(null);
+  const [accepting, setAccepting] = useState(false);
 
   useEffect(() => {
     init();
@@ -342,6 +343,19 @@ export default function DuelRoom() {
     setVotingFor(false);
   }
 
+  async function handleAcceptChallenge() {
+    setAccepting(true);
+    setErrorMsg("");
+    const { error } = await supabase.rpc("accept_duel", { p_duel_id: duelId });
+    if (error) {
+      setErrorMsg(translateRpcError(error.message));
+      setAccepting(false);
+      return;
+    }
+    if (userIdRef.current) await loadDuel(userIdRef.current);
+    setAccepting(false);
+  }
+
   const isCreator = duel?.creator_id === userId;
   const isOpponent = duel?.opponent_id === userId;
   const isParticipant = isCreator || isOpponent;
@@ -362,6 +376,47 @@ export default function DuelRoom() {
     return (
       <div className="min-h-screen bg-gray-950 text-white flex items-center justify-center">
         <div className="text-gray-500">Загрузка...</div>
+      </div>
+    );
+  }
+
+  // Non-participant landing on a shared link to an OPEN duel → let them accept.
+  if (duel && !isParticipant && duel.status === "open") {
+    const prize = Math.round(duel.stake * 2 * 0.9);
+    return (
+      <div className="min-h-screen bg-gray-950 text-white flex items-center justify-center px-4">
+        <div className="w-full max-w-md">
+          <div className="text-center mb-6">
+            <div className="text-2xl font-bold tracking-tight">duel<span className="text-red-500">.</span>dev</div>
+            <div className="text-gray-400 text-sm mt-1">Тебе бросили вызов</div>
+          </div>
+          <div className="bg-gray-900 border border-gray-800 rounded-2xl p-5 space-y-4">
+            <div>
+              <span className={`text-xs px-2 py-1 rounded-full ${duel.problem_id ? "bg-yellow-900/40 text-yellow-400" : "bg-blue-900/40 text-blue-400"}`}>
+                {duel.problem_id ? "🏆 Рейтинг" : duel.language}
+              </span>
+            </div>
+            <p className="text-gray-200 text-sm whitespace-pre-wrap">{duel.task}</p>
+            <div className="border-t border-gray-800 pt-3 space-y-2 text-sm">
+              <div className="flex justify-between"><span className="text-gray-400">Ставка</span><span>{duel.stake.toLocaleString("ru-RU")} DLC</span></div>
+              <div className="flex justify-between font-semibold"><span>Победитель получит</span><span className="text-green-400">{prize.toLocaleString("ru-RU")} DLC</span></div>
+            </div>
+            {duel.problem_id && (
+              <p className="text-xs text-gray-500">Соперник уже решил задачу. Прими вызов и постарайся пройти больше тестов.</p>
+            )}
+            {errorMsg && <div className="text-sm px-4 py-3 rounded-xl bg-red-900/50 text-red-400">{errorMsg}</div>}
+            <button
+              onClick={handleAcceptChallenge}
+              disabled={accepting}
+              className="w-full bg-red-600 hover:bg-red-700 disabled:opacity-50 text-white font-medium py-3 rounded-xl transition-colors"
+            >
+              {accepting ? "Принятие..." : `Принять вызов — ${duel.stake.toLocaleString("ru-RU")} DLC`}
+            </button>
+            <button onClick={() => router.push("/")} className="w-full text-gray-500 hover:text-gray-300 text-sm">
+              ← На главную
+            </button>
+          </div>
+        </div>
       </div>
     );
   }
