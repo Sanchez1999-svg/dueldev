@@ -108,6 +108,7 @@ export default function Home() {
   const [problemId, setProblemId] = useState<string>("");
   const [solveCode, setSolveCode] = useState("");
   const [solveLang, setSolveLang] = useState("Python");
+  const [shareCopied, setShareCopied] = useState(false);
   const [loading, setLoading] = useState(true);
   const [publishing, setPublishing] = useState(false);
   const [accepting, setAccepting] = useState(false);
@@ -504,10 +505,24 @@ export default function Home() {
                 </button>
               ) : (
                 <div className="space-y-3">
-                  <div>Это твоя дуэль. Жди когда кто-то примет вызов.</div>
+                  <div>Это твоя дуэль. Жди когда кто-то примет вызов — или позови соперника сам.</div>
                   {errorMsg && (
                     <div className="text-sm px-4 py-3 rounded-xl bg-red-900/50 text-red-400">{errorMsg}</div>
                   )}
+                  <button
+                    onClick={async () => {
+                      try {
+                        await navigator.clipboard.writeText(`${window.location.origin}/duel/${selectedDuel.id}`);
+                        setShareCopied(true);
+                        setTimeout(() => setShareCopied(false), 2000);
+                      } catch {
+                        setErrorMsg("Не удалось скопировать ссылку");
+                      }
+                    }}
+                    className="w-full bg-red-600 hover:bg-red-700 text-white font-medium py-3 rounded-xl transition-colors"
+                  >
+                    {shareCopied ? "✓ Ссылка скопирована" : "🔗 Поделиться вызовом"}
+                  </button>
                   <button
                     onClick={() => handleCancel(selectedDuel)}
                     disabled={cancelling}
