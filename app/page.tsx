@@ -916,32 +916,32 @@ export default function Home() {
       <div className="max-w-6xl mx-auto px-6 py-6">
 
         {/* Header */}
-        <div className="flex items-center justify-between mb-6">
+        <div className="flex flex-wrap items-center justify-between gap-3 mb-6">
           <div className="text-2xl font-bold tracking-tight">
             duel<span className="text-red-500">.</span>dev
           </div>
-          <div className="flex items-center gap-4">
-            <span className="text-sm text-gray-400">
+          <div className="flex items-center gap-2 sm:gap-4 flex-wrap">
+            <span className="hidden sm:inline text-sm text-gray-400">
               Привет, <span className="text-gray-300">{profile?.username}</span>!
             </span>
-            <span className="text-sm text-gray-400">
+            <span className="text-xs sm:text-sm text-gray-400">
               Баланс: <span className="text-white font-medium">{profile?.balance?.toLocaleString("ru-RU") || 0} DLC</span>
             </span>
             <button
               onClick={() => { setShowLeaderboard(true); loadLeaderboard(); }}
-              className="bg-gray-800 hover:bg-gray-700 text-white text-sm font-medium px-4 py-2 rounded-xl transition-colors"
+              className="hidden sm:inline-block bg-gray-800 hover:bg-gray-700 text-white text-sm font-medium px-4 py-2 rounded-xl transition-colors"
             >
               🏆 Топ игроков
             </button>
             <button
               onClick={() => setShowCreate(true)}
-              className="bg-red-600 hover:bg-red-700 text-white text-base font-semibold px-7 py-3 rounded-xl transition-colors shadow-lg shadow-red-600/20"
+              className="bg-red-600 hover:bg-red-700 text-white text-sm sm:text-base font-semibold px-4 sm:px-7 py-2.5 sm:py-3 rounded-xl transition-colors shadow-lg shadow-red-600/20"
             >
               + Бросить вызов
             </button>
             <button
               onClick={handleLogout}
-              className="w-8 h-8 rounded-full bg-blue-600 flex items-center justify-center text-xs font-medium hover:bg-blue-700 transition-colors"
+              className="w-8 h-8 rounded-full bg-blue-600 flex items-center justify-center text-xs font-medium hover:bg-blue-700 transition-colors shrink-0"
               title="Выйти"
             >
               {profile?.username?.slice(0, 2).toUpperCase() || "??"}
@@ -950,31 +950,31 @@ export default function Home() {
         </div>
 
         {/* Статистика */}
-        <div className="grid grid-cols-5 gap-3 mb-6">
-          <div className="bg-gray-900 rounded-xl p-4 border border-gray-800 text-center">
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2 sm:gap-3 mb-6">
+          <div className="bg-gray-900 rounded-xl p-3 sm:p-4 border border-gray-800 text-center">
             <div className="text-xs text-gray-500 mb-1">Победы</div>
-            <div className="text-2xl font-semibold text-green-400">{profile?.wins ?? 0}</div>
+            <div className="text-xl sm:text-2xl font-semibold text-green-400">{profile?.wins ?? 0}</div>
           </div>
-          <div className="bg-gray-900 rounded-xl p-4 border border-gray-800 text-center">
+          <div className="bg-gray-900 rounded-xl p-3 sm:p-4 border border-gray-800 text-center">
             <div className="text-xs text-gray-500 mb-1">Поражения</div>
-            <div className="text-2xl font-semibold text-red-400">{profile?.losses ?? 0}</div>
+            <div className="text-xl sm:text-2xl font-semibold text-red-400">{profile?.losses ?? 0}</div>
           </div>
-          <div className="bg-gray-900 rounded-xl p-4 border border-gray-800 text-center">
+          <div className="bg-gray-900 rounded-xl p-3 sm:p-4 border border-gray-800 text-center">
             <div className="text-xs text-gray-500 mb-1">Винрейт</div>
-            <div className="text-2xl font-semibold">
+            <div className="text-xl sm:text-2xl font-semibold">
               {profile && profile.wins + profile.losses > 0
                 ? Math.round((profile.wins / (profile.wins + profile.losses)) * 100)
                 : 0}
               %
             </div>
           </div>
-          <div className="bg-gray-900 rounded-xl p-4 border border-gray-800 text-center">
+          <div className="bg-gray-900 rounded-xl p-3 sm:p-4 border border-gray-800 text-center">
             <div className="text-xs text-gray-500 mb-1">Открытых дуэлей</div>
-            <div className="text-2xl font-semibold">{duels.filter(d => d.status === "open").length}</div>
+            <div className="text-xl sm:text-2xl font-semibold">{duels.filter(d => d.status === "open").length}</div>
           </div>
-          <div className="bg-gray-900 rounded-xl p-4 border border-gray-800 text-center">
+          <div className="bg-gray-900 rounded-xl p-3 sm:p-4 border border-gray-800 text-center col-span-2 sm:col-span-1">
             <div className="text-xs text-gray-500 mb-1">Банк всего</div>
-            <div className="text-2xl font-semibold">{duels.reduce((sum, d) => sum + d.stake * 2, 0).toLocaleString("ru-RU")} DLC</div>
+            <div className="text-xl sm:text-2xl font-semibold">{duels.reduce((sum, d) => sum + d.stake * 2, 0).toLocaleString("ru-RU")} DLC</div>
           </div>
         </div>
 
