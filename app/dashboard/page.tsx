@@ -1,8 +1,8 @@
 "use client";
 import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
-import { supabase } from "./supabase";
-import { parseUtc, translateRpcError, formatRelativeTime } from "./utils";
+import { supabase } from "../supabase";
+import { parseUtc, translateRpcError, formatRelativeTime } from "../utils";
 
 type Duel = {
   id: string;
