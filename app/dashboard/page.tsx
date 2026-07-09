@@ -409,8 +409,11 @@ export default function Home() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-950 text-white flex items-center justify-center">
-        <div className="text-gray-500">Loading...</div>
+      <div className="min-h-screen bg-gray-950 text-white flex flex-col items-center justify-center gap-4">
+        <div className="text-2xl font-bold tracking-tight">
+          duel<span className="text-red-500 animate-pulse">.</span>dev
+        </div>
+        <div className="text-xs text-gray-600">Loading…</div>
       </div>
     );
   }
