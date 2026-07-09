@@ -24,11 +24,11 @@ export type Problem = {
 const PROBLEMS: Record<string, Problem> = {
   "sum-of-list": {
     id: "sum-of-list",
-    title: "Сумма чисел",
+    title: "Sum of numbers",
     statement:
-      "Дан список целых чисел. Выведи их сумму.",
+      "You're given a list of integers. Print their sum.",
     ioSpec:
-      "Ввод: одна строка с целыми числами через пробел.\nВывод: одно целое число — их сумма.",
+      "Input: one line of integers separated by spaces.\nOutput: a single integer — their sum.",
     tests: [
       { stdin: "1 2 3", expected: "6", sample: true },
       { stdin: "10 20", expected: "30", sample: true },
@@ -42,9 +42,9 @@ const PROBLEMS: Record<string, Problem> = {
 
   "max-of-list": {
     id: "max-of-list",
-    title: "Максимум",
-    statement: "Дан список целых чисел. Выведи наибольшее из них.",
-    ioSpec: "Ввод: одна строка с целыми числами через пробел.\nВывод: одно целое число — максимум.",
+    title: "Maximum",
+    statement: "You're given a list of integers. Print the largest one.",
+    ioSpec: "Input: one line of integers separated by spaces.\nOutput: a single integer — the maximum.",
     tests: [
       { stdin: "1 2 3", expected: "3", sample: true },
       { stdin: "100 -100 50", expected: "100", sample: true },
@@ -58,9 +58,9 @@ const PROBLEMS: Record<string, Problem> = {
 
   "reverse-string": {
     id: "reverse-string",
-    title: "Переворот строки",
-    statement: "Дано слово. Выведи его задом наперёд.",
-    ioSpec: "Ввод: одна строка (без пробелов).\nВывод: та же строка в обратном порядке.",
+    title: "Reverse a string",
+    statement: "You're given a word. Print it backwards.",
+    ioSpec: "Input: one line (no spaces).\nOutput: the same string reversed.",
     tests: [
       { stdin: "hello", expected: "olleh", sample: true },
       { stdin: "abc", expected: "cba", sample: true },
@@ -73,9 +73,9 @@ const PROBLEMS: Record<string, Problem> = {
 
   "is-palindrome": {
     id: "is-palindrome",
-    title: "Палиндром",
-    statement: "Дано слово в нижнем регистре. Выведи yes, если это палиндром (читается одинаково в обе стороны), иначе no.",
-    ioSpec: "Ввод: одна строка (слово в нижнем регистре, без пробелов).\nВывод: yes или no.",
+    title: "Palindrome",
+    statement: "You're given a lowercase word. Print yes if it's a palindrome (reads the same both ways), otherwise no.",
+    ioSpec: "Input: one line (a lowercase word, no spaces).\nOutput: yes or no.",
     tests: [
       { stdin: "level", expected: "yes", sample: true },
       { stdin: "hello", expected: "no", sample: true },
@@ -89,9 +89,9 @@ const PROBLEMS: Record<string, Problem> = {
 
   "digit-sum": {
     id: "digit-sum",
-    title: "Сумма цифр",
-    statement: "Дано целое неотрицательное число. Выведи сумму его цифр.",
-    ioSpec: "Ввод: одно неотрицательное целое число.\nВывод: одно целое число — сумма цифр.",
+    title: "Digit sum",
+    statement: "You're given a non-negative integer. Print the sum of its digits.",
+    ioSpec: "Input: a single non-negative integer.\nOutput: a single integer — the digit sum.",
     tests: [
       { stdin: "123", expected: "6", sample: true },
       { stdin: "9999", expected: "36", sample: true },
@@ -105,9 +105,9 @@ const PROBLEMS: Record<string, Problem> = {
 
   "fibonacci": {
     id: "fibonacci",
-    title: "Число Фибоначчи",
-    statement: "Дано целое число n (0 ≤ n ≤ 90). Выведи n-е число Фибоначчи. Считается, что F(0) = 0, F(1) = 1.",
-    ioSpec: "Ввод: одно целое число n.\nВывод: n-е число Фибоначчи.",
+    title: "Fibonacci number",
+    statement: "You're given an integer n (0 ≤ n ≤ 90). Print the n-th Fibonacci number, where F(0) = 0, F(1) = 1.",
+    ioSpec: "Input: a single integer n.\nOutput: the n-th Fibonacci number.",
     tests: [
       { stdin: "0", expected: "0", sample: true },
       { stdin: "10", expected: "55", sample: true },
@@ -121,9 +121,9 @@ const PROBLEMS: Record<string, Problem> = {
 
   "count-words": {
     id: "count-words",
-    title: "Количество слов",
-    statement: "Дана строка. Выведи количество слов в ней (слова разделены одним или несколькими пробелами).",
-    ioSpec: "Ввод: одна строка.\nВывод: одно целое число — количество слов.",
+    title: "Word count",
+    statement: "You're given a string. Print the number of words in it (words are separated by one or more spaces).",
+    ioSpec: "Input: one line.\nOutput: a single integer — the number of words.",
     tests: [
       { stdin: "hello world", expected: "2", sample: true },
       { stdin: "one two three four", expected: "4", sample: true },
@@ -135,9 +135,9 @@ const PROBLEMS: Record<string, Problem> = {
 
   "gcd": {
     id: "gcd",
-    title: "НОД двух чисел",
-    statement: "Даны два натуральных числа. Выведи их наибольший общий делитель.",
-    ioSpec: "Ввод: одна строка с двумя натуральными числами через пробел.\nВывод: одно целое число — НОД.",
+    title: "GCD of two numbers",
+    statement: "You're given two positive integers. Print their greatest common divisor.",
+    ioSpec: "Input: one line with two positive integers separated by a space.\nOutput: a single integer — the GCD.",
     tests: [
       { stdin: "12 18", expected: "6", sample: true },
       { stdin: "100 75", expected: "25", sample: true },
@@ -149,9 +149,9 @@ const PROBLEMS: Record<string, Problem> = {
 
   "is-prime": {
     id: "is-prime",
-    title: "Простое число",
-    statement: "Дано целое число n (n ≥ 1). Выведи yes, если n простое, иначе no.",
-    ioSpec: "Ввод: одно целое число n.\nВывод: yes или no.",
+    title: "Prime number",
+    statement: "You're given an integer n (n ≥ 1). Print yes if n is prime, otherwise no.",
+    ioSpec: "Input: a single integer n.\nOutput: yes or no.",
     tests: [
       { stdin: "7", expected: "yes", sample: true },
       { stdin: "10", expected: "no", sample: true },
@@ -164,9 +164,9 @@ const PROBLEMS: Record<string, Problem> = {
 
   "count-vowels": {
     id: "count-vowels",
-    title: "Количество гласных",
-    statement: "Дана строка из латинских букв. Посчитай количество гласных букв (a, e, i, o, u) без учёта регистра.",
-    ioSpec: "Ввод: одна строка.\nВывод: одно целое число — количество гласных.",
+    title: "Vowel count",
+    statement: "You're given a string of Latin letters. Count the vowels (a, e, i, o, u), case-insensitive.",
+    ioSpec: "Input: one line.\nOutput: a single integer — the number of vowels.",
     tests: [
       { stdin: "hello", expected: "2", sample: true },
       { stdin: "aeiou", expected: "5", sample: true },

@@ -13,8 +13,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "duel.dev — кодинг-дуэли",
-  description: "Брось вызов программисту и выиграй ставку в кодинг-дуэли",
+  title: "duel.dev — coding duels",
+  description: "Challenge a developer and win the stake in a coding duel",
   icons: { icon: "/favicon.svg" },
 };
 

@@ -68,14 +68,14 @@ export async function POST(req: NextRequest) {
 
   // Must solve at least one test to publish a challenge.
   if (passed === 0) {
-    return NextResponse.json({ error: "Реши хотя бы один тест, чтобы бросить вызов", passed, total }, { status: 400 });
+    return NextResponse.json({ error: "Pass at least one test to throw down the challenge", passed, total }, { status: 400 });
   }
 
   // Create the open challenge.
   const { data: duelRows, error: duelErr } = await admin.from("duels").insert({
     creator_id: user.id,
     task: problem.statement,
-    language: "Любой",
+    language: "Any",
     duration_minutes: durationMinutes,
     stake,
     status: "open",

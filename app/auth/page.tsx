@@ -29,21 +29,21 @@ export default function AuthPage() {
         options: { data: { username } },
       });
       if (error) setMessage(error.message);
-      else { setOk(true); setMessage("Проверь почту — мы отправили письмо для подтверждения!"); }
+      else { setOk(true); setMessage("Check your email — we sent you a confirmation link!"); }
     } else {
       const { error } = await supabase.auth.resetPasswordForEmail(email, {
         redirectTo: `${window.location.origin}/auth/reset`,
       });
       if (error) setMessage(error.message);
-      else { setOk(true); setMessage("Если такой аккаунт есть — мы отправили письмо со ссылкой для сброса пароля."); }
+      else { setOk(true); setMessage("If an account exists, we've sent a password reset link to your email."); }
     }
     setLoading(false);
   };
 
   const subtitle =
-    mode === "login" ? "Войди чтобы начать дуэль"
-    : mode === "signup" ? "Создай аккаунт бесплатно"
-    : "Восстановление пароля";
+    mode === "login" ? "Log in to start a duel"
+    : mode === "signup" ? "Create your free account"
+    : "Reset your password";
 
   return (
     <div className="min-h-screen bg-gray-950 text-white flex items-center justify-center px-4">
@@ -60,12 +60,12 @@ export default function AuthPage() {
 
           {mode === "signup" && (
             <div>
-              <label className="block text-sm text-gray-400 mb-2">Имя пользователя</label>
+              <label className="block text-sm text-gray-400 mb-2">Username</label>
               <input
                 type="text"
                 value={username}
                 onChange={e => setUsername(e.target.value)}
-                placeholder="например: codekiller99"
+                placeholder="e.g. codekiller99"
                 className="w-full bg-gray-800 border border-gray-700 rounded-xl px-4 py-3 text-white placeholder-gray-600 focus:outline-none focus:border-red-500 transition-colors"
               />
             </div>
@@ -77,19 +77,19 @@ export default function AuthPage() {
               type="email"
               value={email}
               onChange={e => setEmail(e.target.value)}
-              placeholder="твой@email.com"
+              placeholder="you@email.com"
               className="w-full bg-gray-800 border border-gray-700 rounded-xl px-4 py-3 text-white placeholder-gray-600 focus:outline-none focus:border-red-500 transition-colors"
             />
           </div>
 
           {mode !== "forgot" && (
             <div>
-              <label className="block text-sm text-gray-400 mb-2">Пароль</label>
+              <label className="block text-sm text-gray-400 mb-2">Password</label>
               <input
                 type="password"
                 value={password}
                 onChange={e => setPassword(e.target.value)}
-                placeholder="минимум 6 символов"
+                placeholder="at least 6 characters"
                 className="w-full bg-gray-800 border border-gray-700 rounded-xl px-4 py-3 text-white placeholder-gray-600 focus:outline-none focus:border-red-500 transition-colors"
               />
             </div>
@@ -101,7 +101,7 @@ export default function AuthPage() {
                 onClick={() => { setMode("forgot"); setMessage(""); setOk(false); }}
                 className="text-xs text-gray-500 hover:text-gray-300 transition-colors"
               >
-                Забыли пароль?
+                Forgot password?
               </button>
             </div>
           )}
@@ -117,10 +117,10 @@ export default function AuthPage() {
             disabled={loading}
             className="w-full bg-red-600 hover:bg-red-700 disabled:opacity-50 text-white font-medium py-3 rounded-xl transition-colors"
           >
-            {loading ? "Загрузка..."
-              : mode === "login" ? "Войти"
-              : mode === "signup" ? "Создать аккаунт"
-              : "Отправить ссылку"}
+            {loading ? "Loading..."
+              : mode === "login" ? "Log in"
+              : mode === "signup" ? "Create account"
+              : "Send reset link"}
           </button>
 
           <div className="text-center text-sm text-gray-500">
@@ -129,16 +129,16 @@ export default function AuthPage() {
                 onClick={() => { setMode("login"); setMessage(""); setOk(false); }}
                 className="text-red-400 hover:text-red-300 transition-colors"
               >
-                ← Назад ко входу
+                ← Back to log in
               </button>
             ) : (
               <>
-                {mode === "login" ? "Нет аккаунта?" : "Уже есть аккаунт?"}{" "}
+                {mode === "login" ? "No account?" : "Already have an account?"}{" "}
                 <button
                   onClick={() => { setMode(mode === "login" ? "signup" : "login"); setMessage(""); setOk(false); }}
                   className="text-red-400 hover:text-red-300 transition-colors"
                 >
-                  {mode === "login" ? "Зарегистрироваться" : "Войти"}
+                  {mode === "login" ? "Sign up" : "Log in"}
                 </button>
               </>
             )}
@@ -147,7 +147,7 @@ export default function AuthPage() {
 
         {mode === "signup" && (
           <p className="text-center text-xs text-gray-600 mt-4 px-4">
-            Регистрируясь, ты соглашаешься с тем, что DLC — внутриигровая валюта без реальной денежной ценности.
+            By signing up, you agree that DLC is an in-game virtual currency with no real monetary value.
           </p>
         )}
       </div>

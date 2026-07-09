@@ -116,7 +116,7 @@ export default function DuelRoom() {
   }, [duel]);
 
   useEffect(() => {
-    if (duel && duel.language !== "Любой") setRunLanguage(duel.language);
+    if (duel && duel.language !== "Any") setRunLanguage(duel.language);
   }, [duel?.language]);
 
   // For ranked duels, fetch the public problem details (io spec) to show.
@@ -230,7 +230,7 @@ export default function DuelRoom() {
 
     const { data: { session } } = await supabase.auth.getSession();
     if (!session) {
-      setRunError("Сессия истекла, перезайди");
+      setRunError("Session expired, please log in again");
       setRunning(false);
       return;
     }
@@ -246,12 +246,12 @@ export default function DuelRoom() {
       });
       const data = await res.json();
       if (!res.ok) {
-        setRunError(data.error || "Ошибка выполнения");
+        setRunError(data.error || "Execution error");
       } else {
         setRunOutput(data);
       }
     } catch {
-      setRunError("Не удалось связаться с сервером выполнения");
+      setRunError("Couldn't reach the execution server");
     }
 
     setRunning(false);
@@ -260,7 +260,7 @@ export default function DuelRoom() {
   async function handleSubmit() {
     if (!code.trim() || !userId || !duel) return;
     if (code.length > CODE_MAX_LENGTH) {
-      setErrorMsg(`Решение слишком длинное (максимум ${CODE_MAX_LENGTH} символов)`);
+      setErrorMsg(`Solution is too long (max ${CODE_MAX_LENGTH} characters)`);
       return;
     }
     setSubmitting(true);
@@ -269,7 +269,7 @@ export default function DuelRoom() {
     if (duel.problem_id) {
       // Ranked: the server judges against hidden tests and records the score.
       const { data: { session } } = await supabase.auth.getSession();
-      if (!session) { setErrorMsg("Сессия истекла, перезайди"); setSubmitting(false); return; }
+      if (!session) { setErrorMsg("Session expired, please log in again"); setSubmitting(false); return; }
       try {
         const res = await fetch("/api/duel/submit", {
           method: "POST",
@@ -278,13 +278,13 @@ export default function DuelRoom() {
         });
         const data = await res.json();
         if (!res.ok) {
-          setErrorMsg(data.error === "already submitted" ? "Ты уже отправил решение" : (data.error || "Ошибка отправки"));
+          setErrorMsg(data.error === "already submitted" ? "You've already submitted a solution" : (data.error || "Submission error"));
         } else {
           setRankedResult({ passed: data.passed, total: data.total, allPassed: data.allPassed });
           await refreshData();
         }
       } catch {
-        setErrorMsg("Не удалось связаться с сервером");
+        setErrorMsg("Couldn't reach the server");
       }
       setSubmitting(false);
       return;
@@ -324,7 +324,7 @@ export default function DuelRoom() {
 
     await refreshData();
 
-    // Проверяем согласны ли оба голоса
+    // Check whether both votes agree
     const { data: allVotes } = await supabase
       .from("votes")
       .select("voted_for")
@@ -377,7 +377,7 @@ export default function DuelRoom() {
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-950 text-white flex items-center justify-center">
-        <div className="text-gray-500">Загрузка...</div>
+        <div className="text-gray-500">Loading...</div>
       </div>
     );
   }
@@ -390,27 +390,27 @@ export default function DuelRoom() {
         <div className="w-full max-w-md">
           <div className="text-center mb-6">
             <div className="text-2xl font-bold tracking-tight">duel<span className="text-red-500">.</span>dev</div>
-            <div className="text-gray-400 text-sm mt-1">Тебе бросили вызов</div>
+            <div className="text-gray-400 text-sm mt-1">You've been challenged</div>
           </div>
           <div className="bg-gray-900 border border-gray-800 rounded-2xl p-5 space-y-4">
             <div>
               <span className={`text-xs px-2 py-1 rounded-full ${duel.problem_id ? "bg-yellow-900/40 text-yellow-400" : "bg-blue-900/40 text-blue-400"}`}>
-                {duel.problem_id ? "🏆 Рейтинг" : duel.language}
+                {duel.problem_id ? "🏆 Ranked" : duel.language}
               </span>
             </div>
             <p className="text-gray-200 text-sm whitespace-pre-wrap">{duel.task}</p>
             <div className="border-t border-gray-800 pt-3 space-y-2 text-sm">
               {duel.stake_type === "item" ? (
-                <div className="flex justify-between"><span className="text-gray-400">На кону</span><span className="text-right">{duel.item_description}</span></div>
+                <div className="flex justify-between"><span className="text-gray-400">At stake</span><span className="text-right">{duel.item_description}</span></div>
               ) : (
                 <>
-                  <div className="flex justify-between"><span className="text-gray-400">Ставка</span><span>{duel.stake.toLocaleString("ru-RU")} DLC</span></div>
-                  <div className="flex justify-between font-semibold"><span>Победитель получит</span><span className="text-green-400">{prize.toLocaleString("ru-RU")} DLC</span></div>
+                  <div className="flex justify-between"><span className="text-gray-400">Stake</span><span>{duel.stake.toLocaleString("en-US")} DLC</span></div>
+                  <div className="flex justify-between font-semibold"><span>Winner gets</span><span className="text-green-400">{prize.toLocaleString("en-US")} DLC</span></div>
                 </>
               )}
             </div>
             {duel.problem_id && (
-              <p className="text-xs text-gray-500">Соперник уже решил задачу. Прими вызов и постарайся пройти больше тестов.</p>
+              <p className="text-xs text-gray-500">Your opponent already solved the problem. Accept the challenge and try to pass more tests.</p>
             )}
             {errorMsg && <div className="text-sm px-4 py-3 rounded-xl bg-red-900/50 text-red-400">{errorMsg}</div>}
             <button
@@ -418,10 +418,10 @@ export default function DuelRoom() {
               disabled={accepting}
               className="w-full bg-red-600 hover:bg-red-700 disabled:opacity-50 text-white font-medium py-3 rounded-xl transition-colors"
             >
-              {accepting ? "Принятие..." : duel.stake_type === "item" ? "Принять вызов" : `Принять вызов — ${duel.stake.toLocaleString("ru-RU")} DLC`}
+              {accepting ? "Accepting..." : duel.stake_type === "item" ? "Accept challenge" : `Accept challenge — ${duel.stake.toLocaleString("en-US")} DLC`}
             </button>
             <button onClick={() => router.push("/")} className="w-full text-gray-500 hover:text-gray-300 text-sm">
-              ← На главную
+              ← Home
             </button>
           </div>
         </div>
@@ -432,9 +432,9 @@ export default function DuelRoom() {
   if (!duel || !isParticipant) {
     return (
       <div className="min-h-screen bg-gray-950 text-white flex flex-col items-center justify-center gap-4">
-        <div className="text-gray-400">У тебя нет доступа к этой дуэли</div>
+        <div className="text-gray-400">You don't have access to this duel</div>
         <button onClick={() => router.push("/")} className="text-red-400 hover:text-red-300">
-          ← На главную
+          ← Home
         </button>
       </div>
     );
@@ -445,62 +445,62 @@ export default function DuelRoom() {
   const isRanked = !!duel.problem_id;
   const prize = Math.round(duel.stake * 2 * 0.9);
 
-  // Экран завершённой дуэли
+  // Finished duel screen
   if (duel.status === "finished") {
     const iWon = duel.winner_id === userId;
     return (
       <div className="min-h-screen bg-gray-950 text-white flex flex-col items-center justify-center gap-4 px-4">
         <div className="text-4xl mb-2">{iWon ? "🏆" : "💀"}</div>
-        <h1 className="text-2xl font-semibold">{iWon ? "Ты выиграл!" : "Ты проиграл"}</h1>
+        <h1 className="text-2xl font-semibold">{iWon ? "You won!" : "You lost"}</h1>
         {duel.stake_type === "item" ? (
-          <p className="text-gray-400 text-center max-w-sm">{iWon ? `Забери: ${duel.item_description}` : `Отдай сопернику: ${duel.item_description}`}</p>
+          <p className="text-gray-400 text-center max-w-sm">{iWon ? `Claim: ${duel.item_description}` : `Hand over to your opponent: ${duel.item_description}`}</p>
         ) : (
-          iWon && <p className="text-green-400">+{prize.toLocaleString("ru-RU")} DLC на счёт</p>
+          iWon && <p className="text-green-400">+{prize.toLocaleString("en-US")} DLC to your balance</p>
         )}
         <button onClick={() => router.push("/")} className="text-red-400 hover:text-red-300 mt-2">
-          ← На главную
+          ← Home
         </button>
       </div>
     );
   }
 
-  // Экран аннулированной дуэли (голоса не совпали — ставки возвращены)
+  // Voided duel screen (votes didn't match — stakes refunded)
   if (duel.status === "voided") {
     return (
       <div className="min-h-screen bg-gray-950 text-white flex flex-col items-center justify-center gap-4 px-4">
         <div className="text-4xl mb-2">🤝</div>
-        <h1 className="text-2xl font-semibold">Голоса не совпали</h1>
+        <h1 className="text-2xl font-semibold">Votes didn't match</h1>
         <p className="text-gray-400 text-center max-w-sm">
-          Вы проголосовали за разных победителей, поэтому дуэль аннулирована — ставки возвращены обоим.
+          You voted for different winners, so the duel was voided — stakes were refunded to both of you.
         </p>
         <button onClick={() => router.push("/")} className="text-red-400 hover:text-red-300 mt-2">
-          ← На главную
+          ← Home
         </button>
       </div>
     );
   }
 
-  // Экран голосования (оба отправили решения) — только для кастомных дуэлей.
-  // Рейтинговые финализируются автоматически на сервере по очкам.
+  // Voting screen (both submitted) — only for custom duels. Ranked duels are
+  // finalized automatically on the server by score.
   if (bothSubmitted && !isRanked) {
     return (
       <div className="min-h-screen bg-gray-950 text-white">
         <div className="max-w-5xl mx-auto px-6 py-6">
-          <h1 className="text-xl font-semibold mb-1">Оба решения отправлены</h1>
-          <div className="text-sm text-gray-500 mb-4">Сравните код и проголосуйте за победителя</div>
+          <h1 className="text-xl font-semibold mb-1">Both solutions submitted</h1>
+          <div className="text-sm text-gray-500 mb-4">Compare the code and vote for the winner</div>
 
           <div className="bg-gray-900 border border-gray-800 rounded-xl p-4 mb-4">
-            <div className="text-xs text-gray-500 mb-1">Задача</div>
+            <div className="text-xs text-gray-500 mb-1">Task</div>
             <p className="text-gray-200 text-sm">{duel.task}</p>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
             <div>
-              <div className="text-sm text-gray-400 mb-2">Твоё решение</div>
+              <div className="text-sm text-gray-400 mb-2">Your solution</div>
               <pre className="bg-black border border-gray-800 rounded-xl p-4 text-sm text-green-400 overflow-auto max-h-[500px] whitespace-pre-wrap">{mySolution?.code}</pre>
             </div>
             <div>
-              <div className="text-sm text-gray-400 mb-2">Решение соперника ({opponentProfile?.username})</div>
+              <div className="text-sm text-gray-400 mb-2">Opponent's solution ({opponentProfile?.username})</div>
               <pre className="bg-black border border-gray-800 rounded-xl p-4 text-sm text-blue-400 overflow-auto max-h-[500px] whitespace-pre-wrap">{opponentSolution?.code}</pre>
             </div>
           </div>
@@ -511,29 +511,29 @@ export default function DuelRoom() {
 
           {myVote ? (
             <div className="bg-gray-900 border border-gray-800 rounded-xl p-4 text-center text-gray-400">
-              Ты проголосовал. {opponentVote ? "Ждём результата..." : "Жди голоса соперника."}
+              You've voted. {opponentVote ? "Waiting for the result..." : "Waiting for your opponent's vote."}
             </div>
           ) : (
             <div className="max-w-md">
-              <div className="text-sm text-gray-400 mb-2">Кто решил лучше?</div>
+              <div className="text-sm text-gray-400 mb-2">Who solved it better?</div>
               <div className="grid grid-cols-2 gap-3">
                 <button
                   onClick={() => handleVote(userId!)}
                   disabled={votingFor}
                   className="bg-green-600 hover:bg-green-700 disabled:opacity-50 text-white font-medium py-3 rounded-xl transition-colors"
                 >
-                  Я победил
+                  I won
                 </button>
                 <button
                   onClick={() => handleVote(opponentId!)}
                   disabled={votingFor}
                   className="bg-gray-700 hover:bg-gray-600 disabled:opacity-50 text-white font-medium py-3 rounded-xl transition-colors"
                 >
-                  {opponentProfile?.username} победил
+                  {opponentProfile?.username} won
                 </button>
               </div>
               <div className="text-xs text-gray-600 mt-3 text-center">
-                Если голоса не совпадут — дуэль аннулируется и ставки вернутся обоим
+                If the votes don't match, the duel is voided and stakes are refunded to both
               </div>
             </div>
           )}
@@ -548,7 +548,7 @@ export default function DuelRoom() {
 
         <div className="flex items-center justify-between mb-4">
           <button onClick={() => router.push("/")} className="flex items-center gap-2 text-gray-400 hover:text-white transition-colors">
-            ← Выйти из дуэли
+            ← Leave duel
           </button>
           <div className={`text-3xl font-bold tabular-nums ${isTimeUp ? "text-red-500" : timeLeft !== null && timeLeft < 60 ? "text-yellow-500" : "text-white"}`}>
             {timeLeft !== null ? formatTime(timeLeft) : "--:--"}
@@ -556,39 +556,39 @@ export default function DuelRoom() {
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-[340px_1fr] gap-6">
-          {/* Сайдбар: задача, статус, отправка */}
+          {/* Sidebar: task, status, submit */}
           <aside className="space-y-4">
             <div>
-              <h1 className="text-xl font-semibold">Дуэль в процессе</h1>
+              <h1 className="text-xl font-semibold">Duel in progress</h1>
               <div className="text-sm text-gray-500">
-                {isRanked ? "🏆 Рейтинг" : duel.language} • {duel.stake_type === "item" ? `На кону: ${duel.item_description}` : `Ставка ${duel.stake.toLocaleString("ru-RU")} DLC`}
+                {isRanked ? "🏆 Ranked" : duel.language} • {duel.stake_type === "item" ? `At stake: ${duel.item_description}` : `Stake ${duel.stake.toLocaleString("en-US")} DLC`}
               </div>
             </div>
 
             <div className="bg-gray-900 border border-gray-800 rounded-xl p-4">
-              <div className="text-xs text-gray-500 mb-1">Задача</div>
+              <div className="text-xs text-gray-500 mb-1">Task</div>
               <p className="text-gray-200 text-sm whitespace-pre-wrap">{duel.task}</p>
               {isRanked && problemInfo && (
                 <div className="mt-3 pt-3 border-t border-gray-800">
-                  <div className="text-xs text-gray-500 mb-1">Формат ввода/вывода</div>
+                  <div className="text-xs text-gray-500 mb-1">Input/output format</div>
                   <pre className="text-gray-300 text-xs whitespace-pre-wrap font-sans">{problemInfo.ioSpec}</pre>
-                  <div className="text-xs text-gray-600 mt-2">Решение проверяется на {problemInfo.totalTests} тестах</div>
+                  <div className="text-xs text-gray-600 mt-2">Judged against {problemInfo.totalTests} tests</div>
                 </div>
               )}
             </div>
 
             {isRanked && rankedResult ? (
               <div className={`border rounded-xl p-4 text-center text-sm ${rankedResult.allPassed ? "bg-green-900/30 border-green-800 text-green-400" : "bg-yellow-900/30 border-yellow-800 text-yellow-400"}`}>
-                Пройдено тестов: <span className="font-bold">{rankedResult.passed}/{rankedResult.total}</span>
-                <div className="text-xs text-gray-400 mt-1">Жди соперника — победитель определится автоматически по очкам.</div>
+                Tests passed: <span className="font-bold">{rankedResult.passed}/{rankedResult.total}</span>
+                <div className="text-xs text-gray-400 mt-1">Wait for your opponent — the winner is decided automatically by score.</div>
               </div>
             ) : isTimeUp && !mySolution ? (
               <div className="bg-red-900/30 border border-red-800 rounded-xl p-4 text-center text-red-400 text-sm">
-                Время истекло, и ты не отправил решение. Скорее всего засчитают поражение.
+                Time's up and you didn't submit a solution. This will likely count as a loss.
               </div>
             ) : mySolution ? (
               <div className="bg-green-900/30 border border-green-800 rounded-xl p-4 text-center text-green-400 text-sm">
-                ✓ Твоё решение отправлено. Жди соперника.
+                ✓ Your solution is submitted. Wait for your opponent.
               </div>
             ) : null}
 
@@ -598,15 +598,15 @@ export default function DuelRoom() {
 
             <div className="grid grid-cols-2 gap-3">
               <div className="bg-gray-900 border border-gray-800 rounded-xl p-3 text-center">
-                <div className="text-xs text-gray-500 mb-1">Ты</div>
+                <div className="text-xs text-gray-500 mb-1">You</div>
                 <div className={`text-sm font-medium ${mySolution ? "text-green-400" : "text-gray-400"}`}>
-                  {mySolution ? "Готово ✓" : "Пишет код..."}
+                  {mySolution ? "Done ✓" : "Coding..."}
                 </div>
               </div>
               <div className="bg-gray-900 border border-gray-800 rounded-xl p-3 text-center">
-                <div className="text-xs text-gray-500 mb-1">{opponentProfile?.username || "Соперник"}</div>
+                <div className="text-xs text-gray-500 mb-1">{opponentProfile?.username || "Opponent"}</div>
                 <div className={`text-sm font-medium ${opponentSolution ? "text-green-400" : "text-gray-400"}`}>
-                  {opponentSolution ? "Готово ✓" : "Пишет код..."}
+                  {opponentSolution ? "Done ✓" : "Coding..."}
                 </div>
               </div>
             </div>
@@ -617,15 +617,15 @@ export default function DuelRoom() {
                 disabled={submitting || !code.trim()}
                 className="w-full bg-red-600 hover:bg-red-700 disabled:opacity-50 text-white font-medium py-3 rounded-xl transition-colors"
               >
-                {submitting ? (isRanked ? "Проверка..." : "Отправка...") : (isRanked ? "Отправить на проверку" : "Отправить решение")}
+                {submitting ? (isRanked ? "Judging..." : "Submitting...") : (isRanked ? "Submit for judging" : "Submit solution")}
               </button>
             )}
 
             <div className="bg-gray-900 border border-gray-800 rounded-xl flex flex-col">
-              <div className="px-4 py-2 border-b border-gray-800 text-sm text-gray-400">Чат</div>
+              <div className="px-4 py-2 border-b border-gray-800 text-sm text-gray-400">Chat</div>
               <div ref={chatScrollRef} className="flex-1 overflow-y-auto px-4 py-2 space-y-2 max-h-64 min-h-[160px]">
                 {messages.length === 0 && (
-                  <div className="text-xs text-gray-600 text-center py-4">Пока никто не написал</div>
+                  <div className="text-xs text-gray-600 text-center py-4">No messages yet</div>
                 )}
                 {messages.map(m => (
                   <div key={m.id} className={`text-sm ${m.sender_id === userId ? "text-right" : ""}`}>
@@ -646,7 +646,7 @@ export default function DuelRoom() {
                 <input
                   value={chatDraft}
                   onChange={e => setChatDraft(e.target.value)}
-                  placeholder="Написать сопернику..."
+                  placeholder="Message your opponent..."
                   maxLength={2000}
                   className="flex-1 bg-gray-800 border border-gray-700 rounded-lg px-3 py-1.5 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-gray-600"
                 />
@@ -661,10 +661,10 @@ export default function DuelRoom() {
             </div>
           </aside>
 
-          {/* Редактор кода */}
+          {/* Code editor */}
           <main>
             <div className="mb-2 flex items-center justify-between">
-              <span className="text-sm text-gray-400">Твой код</span>
+              <span className="text-sm text-gray-400">Your code</span>
               <div className="flex items-center gap-3">
                 <span className={code.length > CODE_MAX_LENGTH ? "text-red-400 text-xs" : "text-gray-600 text-xs"}>
                   {code.length}/{CODE_MAX_LENGTH}
@@ -680,12 +680,12 @@ export default function DuelRoom() {
               maxLength={CODE_MAX_LENGTH}
               spellCheck={false}
               className="w-full h-[60vh] min-h-[420px] bg-black border border-gray-800 rounded-xl p-4 font-mono text-sm text-green-400 placeholder-gray-700 resize-none focus:outline-none focus:border-gray-600 disabled:opacity-60"
-              placeholder={`// Пиши решение здесь...\n// Например:\nfunction solve() {\n  \n}`}
+              placeholder={`// Write your solution here...\n// For example:\nfunction solve() {\n  \n}`}
             />
 
             {!mySolution && (
               <div className="flex items-center gap-2 mt-3">
-                {duel.language === "Любой" && (
+                {duel.language === "Any" && (
                   <select
                     value={runLanguage}
                     onChange={e => setRunLanguage(e.target.value)}
@@ -702,7 +702,7 @@ export default function DuelRoom() {
                   disabled={running || !code.trim()}
                   className="bg-gray-800 hover:bg-gray-700 disabled:opacity-50 text-white text-sm font-medium px-6 py-2 rounded-xl transition-colors"
                 >
-                  {running ? "Выполняется..." : "▶ Запустить"}
+                  {running ? "Running..." : "▶ Run"}
                 </button>
               </div>
             )}
@@ -724,7 +724,7 @@ export default function DuelRoom() {
                 {runOutput.stdout && <pre className="text-gray-200 whitespace-pre-wrap">{runOutput.stdout}</pre>}
                 {runOutput.stderr && <pre className="text-red-400 whitespace-pre-wrap">{runOutput.stderr}</pre>}
                 {!runOutput.stdout && !runOutput.stderr && !runOutput.compileOutput && (
-                  <span className="text-gray-600">Нет вывода</span>
+                  <span className="text-gray-600">No output</span>
                 )}
               </div>
             )}

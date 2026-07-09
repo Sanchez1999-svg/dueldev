@@ -18,22 +18,22 @@ test("parseUtc leaves an already-zoned timestamp untouched", () => {
   assert.equal(parseUtc(withOffset).getTime(), Date.parse(withOffset));
 });
 
-test("translateRpcError maps known backend errors to Russian", () => {
-  assert.equal(translateRpcError("insufficient balance"), "Недостаточно средств на балансе");
-  assert.equal(translateRpcError("duel already accepted"), "Дуэль уже принята другим игроком");
-  assert.equal(translateRpcError("only the creator can cancel this duel"), "Отменить вызов может только его создатель");
-  assert.equal(translateRpcError("only an open duel can be cancelled"), "Можно отменить только ещё не принятый вызов");
+test("translateRpcError maps known backend errors to friendly text", () => {
+  assert.equal(translateRpcError("insufficient balance"), "Not enough balance");
+  assert.equal(translateRpcError("duel already accepted"), "This duel was already accepted by another player");
+  assert.equal(translateRpcError("only the creator can cancel this duel"), "Only the creator can cancel this challenge");
+  assert.equal(translateRpcError("only an open duel can be cancelled"), "Only a not-yet-accepted challenge can be cancelled");
 });
 
 test("translateRpcError matches on substrings (errors include extra context)", () => {
   assert.equal(
     translateRpcError('new row violates ... "insufficient balance" ...'),
-    "Недостаточно средств на балансе"
+    "Not enough balance"
   );
 });
 
 test("translateRpcError falls back for unknown/empty input", () => {
-  const fallback = "Что-то пошло не так, попробуй обновить страницу";
+  const fallback = "Something went wrong, try refreshing the page";
   assert.equal(translateRpcError("some unmapped postgres error"), fallback);
   assert.equal(translateRpcError(null), fallback);
   assert.equal(translateRpcError(undefined), fallback);
@@ -46,11 +46,11 @@ test("formatRelativeTime rolls minutes up into hours and days", () => {
   const HOUR = 60 * MIN;
   const DAY = 24 * HOUR;
 
-  assert.equal(formatRelativeTime(ago(30_000), now), "только что");
-  assert.equal(formatRelativeTime(ago(5 * MIN), now), "5 мин назад");
-  assert.equal(formatRelativeTime(ago(59 * MIN), now), "59 мин назад");
-  assert.equal(formatRelativeTime(ago(90 * MIN), now), "1 ч назад");
-  assert.equal(formatRelativeTime(ago(23 * HOUR), now), "23 ч назад");
-  assert.equal(formatRelativeTime(ago(25 * HOUR), now), "1 дн назад");
-  assert.equal(formatRelativeTime(ago(5 * DAY), now), "5 дн назад");
+  assert.equal(formatRelativeTime(ago(30_000), now), "just now");
+  assert.equal(formatRelativeTime(ago(5 * MIN), now), "5 min ago");
+  assert.equal(formatRelativeTime(ago(59 * MIN), now), "59 min ago");
+  assert.equal(formatRelativeTime(ago(90 * MIN), now), "1h ago");
+  assert.equal(formatRelativeTime(ago(23 * HOUR), now), "23h ago");
+  assert.equal(formatRelativeTime(ago(25 * HOUR), now), "1d ago");
+  assert.equal(formatRelativeTime(ago(5 * DAY), now), "5d ago");
 });
