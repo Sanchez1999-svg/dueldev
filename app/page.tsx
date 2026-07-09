@@ -1,31 +1,26 @@
-"use client";
-import { useRouter } from "next/navigation";
-import { useEffect } from "react";
-import { supabase } from "./supabase";
+import Link from "next/link";
+import SessionRedirect from "./SessionRedirect";
 
+// Server-rendered landing page: all content ships as ready HTML so it shows
+// instantly even on slow/filtered mobile connections where the JS bundle is
+// delayed. Buttons are plain links (no JS needed). SessionRedirect is a tiny
+// client child that only redirects already-logged-in visitors once JS loads.
 export default function LandingPage() {
-  const router = useRouter();
-
-  useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (session) router.replace("/dashboard");
-    });
-  }, []);
-
   return (
     <div className="min-h-screen bg-gray-950 text-white flex flex-col">
+      <SessionRedirect />
 
       {/* Header */}
       <header className="flex items-center justify-between px-6 py-5 max-w-5xl mx-auto w-full">
         <div className="text-2xl font-bold tracking-tight">
           duel<span className="text-red-500">.</span>dev
         </div>
-        <button
-          onClick={() => router.push("/auth")}
+        <Link
+          href="/auth"
           className="bg-gray-800 hover:bg-gray-700 text-white text-sm font-medium px-5 py-2 rounded-xl transition-colors"
         >
           Войти
-        </button>
+        </Link>
       </header>
 
       {/* Hero */}
@@ -43,12 +38,12 @@ export default function LandingPage() {
           Решайте одну задачу на время. Кто быстрее — забирает ставку. Соревнуйся с друзьями или незнакомцами.
         </p>
 
-        <button
-          onClick={() => router.push("/auth")}
+        <Link
+          href="/auth"
           className="bg-red-600 hover:bg-red-700 text-white text-lg font-semibold px-10 py-4 rounded-2xl transition-colors shadow-lg shadow-red-600/20 mb-4"
         >
           Начать бесплатно
-        </button>
+        </Link>
         <p className="text-gray-600 text-sm">Регистрация за 30 секунд</p>
 
         {/* Features */}
